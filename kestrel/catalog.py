@@ -17,8 +17,10 @@ def search(
 ) -> dict:
     """Return {"matches": [...], "near_misses": [...]}.
 
-    A match meets every filter and can be bought now. Near misses are offered
-    only when nothing matches, closest first, each with the reasons it missed.
+    A match meets every filter and can be bought now. A near miss carries the
+    reasons it missed. When nothing matches, the closest near misses are
+    returned. When something matches, only the items that fit the request but
+    cannot be bought now are returned, so an out-of-stock product is never hidden.
     Category and name are hard filters: a helmet is never a near miss for a bike.
     """
     matches, near_misses = [], []
@@ -42,14 +44,15 @@ def search(
 
         if why_not:
             entry["why_not"] = why_not
-            near_misses.append((len(why_not), not style_ok, product.price, entry))
+            only_unavailable = why_not == [stock_problem]
+            near_misses.append((len(why_not), not style_ok, product.price, only_unavailable, entry))
         else:
             matches.append(entry)
 
-    if matches:
-        return {"matches": matches, "near_misses": []}
     near_misses.sort(key=lambda scored: scored[:3])
-    return {"matches": [], "near_misses": [entry for *_, entry in near_misses[:MAX_NEAR_MISSES]]}
+    if matches:
+        near_misses = [scored for scored in near_misses if scored[3]]
+    return {"matches": matches, "near_misses": [entry for *_, entry in near_misses[:MAX_NEAR_MISSES]]}
 
 
 def _is_named(product: Product, name_or_sku: str) -> bool:

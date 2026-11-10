@@ -45,7 +45,7 @@ customer text
      +-- violation --> one rewrite with the reason --> still a hard violation --> fixed safe reply
 ```
 
-The loop is in [kestrel/agent.py](kestrel/agent.py) and is about 90 lines. It stops after 6 model calls per turn.
+The loop is in [kestrel/agent.py](kestrel/agent.py) and is about 100 lines. It stops after 6 model calls per turn.
 
 ## Who decides what
 

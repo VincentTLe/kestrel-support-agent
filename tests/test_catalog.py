@@ -71,8 +71,15 @@ def test_near_misses_are_capped_and_closest_first(catalog):
     assert counts == sorted(counts)
 
 
-def test_near_misses_are_only_offered_when_nothing_matches(catalog):
+def test_with_matches_only_out_of_stock_items_that_fit_the_request_are_also_listed(catalog):
+    # The Metro E-Assist is a commuting bike too; hiding it would hide that it exists.
     result = search(catalog, category="Bikes", riding_style="commuting")
+    assert skus(result["matches"]) == ["KCB-301"]
+    assert skus(result["near_misses"]) == ["KCB-302"]
+
+
+def test_with_matches_items_that_miss_on_budget_or_style_are_not_listed(catalog):
+    result = search(catalog, category="Bikes", max_price=1000)
     assert result["near_misses"] == []
 
 

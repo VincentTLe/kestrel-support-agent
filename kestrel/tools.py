@@ -142,7 +142,8 @@ def build_tools(orders: list[Order], catalog: list[Product], clock: Clock, promo
         Tool(
             "search_products",
             "Search the Kestrel catalog, the only source of product facts. Returns 'matches' (meet every "
-            "filter and are in stock) or, when nothing matches, 'near_misses' with the reasons each missed. "
+            "filter and are in stock) and 'near_misses' (each with why_not: the reasons it missed, such as "
+            "out of stock). Use the filters instead of several broad searches. "
             "For bikes, pass rider_height to get the sizes that fit.",
             SearchProductsArgs,
             search_products,

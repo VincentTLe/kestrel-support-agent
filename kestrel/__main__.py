@@ -14,7 +14,7 @@ from .promo import PromoStore
 from .tools import build_tools
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_MODEL = "anthropic/claude-haiku-4.5"
+DEFAULT_MODEL = "anthropic/claude-haiku-5.5"
 DEFAULT_STATE_FILE = ROOT / "state" / "promo_codes.json"
 
 
