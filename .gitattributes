@@ -1,0 +1,2 @@
+# The brief says the datasets must not be edited: keep them byte-identical.
+data/*.json -text

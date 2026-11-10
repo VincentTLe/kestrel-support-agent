@@ -1,0 +1,185 @@
+[
+  {
+    "sku": "KCB-101",
+    "name": "Switchback 29 Hardtail",
+    "category": "Bikes",
+    "riding_style": ["mountain", "trail"],
+    "price": 1450.00,
+    "description": "Aluminum 29er hardtail with 120 mm air fork and 1x12 drivetrain. A dependable first real mountain bike.",
+    "sizes": [
+      { "size": "S", "rider_height_cm": [155, 167], "in_stock": true },
+      { "size": "M", "rider_height_cm": [167, 178], "in_stock": true },
+      { "size": "L", "rider_height_cm": [178, 188], "in_stock": true },
+      { "size": "XL", "rider_height_cm": [188, 198], "in_stock": false }
+    ],
+    "final_sale": false
+  },
+  {
+    "sku": "KCB-102",
+    "name": "Ridgeback 140 Full Suspension",
+    "category": "Bikes",
+    "riding_style": ["mountain", "trail", "enduro"],
+    "price": 3200.00,
+    "description": "140 mm full-suspension trail bike with dropper post and 4-piston brakes. Built for technical descents.",
+    "sizes": [
+      { "size": "S", "rider_height_cm": [155, 167], "in_stock": false },
+      { "size": "M", "rider_height_cm": [167, 178], "in_stock": true },
+      { "size": "L", "rider_height_cm": [178, 188], "in_stock": true }
+    ],
+    "final_sale": false
+  },
+  {
+    "sku": "KCB-201",
+    "name": "Meridian Gravel 700",
+    "category": "Bikes",
+    "riding_style": ["gravel", "road", "bikepacking"],
+    "price": 1890.00,
+    "description": "Steel gravel bike with clearance for 45 mm tires, rack and fender mounts, and hydraulic disc brakes.",
+    "sizes": [
+      { "size": "S", "rider_height_cm": [155, 167], "in_stock": true },
+      { "size": "M", "rider_height_cm": [167, 178], "in_stock": true },
+      { "size": "L", "rider_height_cm": [178, 188], "in_stock": true },
+      { "size": "XL", "rider_height_cm": [188, 198], "in_stock": true }
+    ],
+    "final_sale": false
+  },
+  {
+    "sku": "KCB-301",
+    "name": "Metro 8 Commuter",
+    "category": "Bikes",
+    "riding_style": ["city", "commuting"],
+    "price": 899.00,
+    "description": "Upright city bike with 8-speed internal hub, fenders, rear rack and integrated lights.",
+    "sizes": [
+      { "size": "M", "rider_height_cm": [160, 180], "in_stock": true },
+      { "size": "L", "rider_height_cm": [178, 195], "in_stock": true }
+    ],
+    "final_sale": false
+  },
+  {
+    "sku": "KCB-302",
+    "name": "Metro E-Assist",
+    "category": "Bikes",
+    "riding_style": ["city", "commuting", "e-bike"],
+    "price": 2650.00,
+    "description": "Pedal-assist commuter with mid-drive motor and 80 km range. Back in stock 2027-01-15.",
+    "sizes": [
+      { "size": "M", "rider_height_cm": [160, 180], "in_stock": false },
+      { "size": "L", "rider_height_cm": [178, 195], "in_stock": false }
+    ],
+    "final_sale": false
+  },
+  {
+    "sku": "KCB-401",
+    "name": "Tempo Carbon Road",
+    "category": "Bikes",
+    "riding_style": ["road", "racing"],
+    "price": 2999.00,
+    "description": "Lightweight carbon endurance road bike with 2x12 drivetrain and disc brakes.",
+    "sizes": [
+      { "size": "S", "rider_height_cm": [158, 170], "in_stock": true },
+      { "size": "M", "rider_height_cm": [170, 180], "in_stock": true },
+      { "size": "L", "rider_height_cm": [180, 190], "in_stock": false }
+    ],
+    "final_sale": false
+  },
+  {
+    "sku": "KCB-501",
+    "name": "Sprout 20 Kids' Bike",
+    "category": "Bikes",
+    "riding_style": ["kids"],
+    "price": 349.00,
+    "description": "20-inch kids' bike with 7 speeds and short-reach brake levers. For riders roughly 6 to 9 years old.",
+    "sizes": [
+      { "size": "One size", "rider_height_cm": [115, 135], "in_stock": true }
+    ],
+    "final_sale": false
+  },
+  {
+    "sku": "KCH-210",
+    "name": "Ridgeline Trail Helmet",
+    "category": "Helmets",
+    "riding_style": ["mountain", "trail", "gravel"],
+    "price": 129.00,
+    "description": "Trail helmet with MIPS liner, adjustable visor and extended rear coverage.",
+    "sizes": [
+      { "size": "S", "in_stock": true },
+      { "size": "M", "in_stock": true },
+      { "size": "L", "in_stock": true }
+    ],
+    "final_sale": false
+  },
+  {
+    "sku": "KCH-220",
+    "name": "Metro Commuter Helmet",
+    "category": "Helmets",
+    "riding_style": ["city", "commuting"],
+    "price": 89.00,
+    "description": "Commuter helmet with built-in rechargeable rear light and magnetic buckle.",
+    "sizes": [
+      { "size": "M", "in_stock": true },
+      { "size": "L", "in_stock": false }
+    ],
+    "final_sale": false
+  },
+  {
+    "sku": "KCA-305",
+    "name": "Commuter Pannier Pair",
+    "category": "Accessories",
+    "riding_style": ["city", "commuting", "bikepacking"],
+    "price": 119.00,
+    "description": "Pair of waterproof 20 L roll-top panniers with quick-release rack clips.",
+    "sizes": null,
+    "in_stock": true,
+    "final_sale": false
+  },
+  {
+    "sku": "KCA-310",
+    "name": "Aluminum Bottle Cage",
+    "category": "Accessories",
+    "riding_style": ["all"],
+    "price": 15.00,
+    "description": "Lightweight side-entry bottle cage. Fits standard bottles.",
+    "sizes": null,
+    "in_stock": true,
+    "final_sale": false
+  },
+  {
+    "sku": "KCA-320",
+    "name": "Mini Pump",
+    "category": "Accessories",
+    "riding_style": ["all"],
+    "price": 35.00,
+    "description": "Frame-mount mini pump for Presta and Schrader valves, up to 100 psi.",
+    "sizes": null,
+    "in_stock": true,
+    "final_sale": false
+  },
+  {
+    "sku": "KCC-410",
+    "name": "Velo Rain Shell Jacket",
+    "category": "Clothing",
+    "riding_style": ["city", "road", "gravel"],
+    "price": 149.00,
+    "description": "Packable waterproof cycling jacket with reflective trim and dropped tail.",
+    "sizes": [
+      { "size": "S", "in_stock": true },
+      { "size": "M", "in_stock": true },
+      { "size": "L", "in_stock": true }
+    ],
+    "final_sale": false
+  },
+  {
+    "sku": "KCC-499",
+    "name": "Last Season Team Jersey",
+    "category": "Clothing",
+    "riding_style": ["road", "gravel"],
+    "price": 39.00,
+    "description": "Clearance: last season's team jersey, originally $85. Final sale, no returns.",
+    "sizes": [
+      { "size": "M", "in_stock": true },
+      { "size": "L", "in_stock": true }
+    ],
+    "final_sale": true
+  }
+]
