@@ -1,39 +1,46 @@
-"""The tools the model may call, and the one function that runs them.
+"""What a tool is, and the one function that runs any tool.
 
 A tool is a name, a description, a pydantic model for its arguments and a
-handler. Adding a feature means adding one entry in build_tools(); the agent
-loop does not change. A failed call is returned to the model as data
-({"error": ...}) and never raised, so one bad call cannot end the chat.
+handler. Features (kestrel/features) build their own tools. A failed call is
+returned to the model as data ({"error": ...}) and never raised, so one bad
+call cannot end the chat.
 
 Arguments named in a tool's customer_supplied must be values the customer
-typed in this conversation, so the model cannot guess an email or an order
-number, even a correct one.
+typed in this conversation (hard guardrail H2), so the model cannot guess an
+email, an order number or a name, even a correct one.
 """
 
 import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Annotated, Any, Callable, Literal
+from typing import Annotated, Any, Callable
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError
 
-from . import catalog as catalog_search
-from .clock import Clock
-from .data import Order, Product
-from .orders import find_order, normalize_email, normalize_order_number, order_summary
-from .promo import PromoStore, request_code
+from .orders import normalize_email, normalize_order_number
 
 log = logging.getLogger(__name__)
 
 Email = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
-CM_PER_INCH = 2.54
-PLAUSIBLE_HEIGHT_CM = (90, 230)
-MAX_FAILED_LOOKUPS = 3  # per conversation; order numbers are sequential and easy to guess
-# How to find each customer-supplied value in what the customer typed, and how to compare it.
-CUSTOMER_VALUES = {
-    "email": (re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"), normalize_email),
-    "order_number": (re.compile(r"\b(?:KC[\s-]?)?\d{5}\b", re.IGNORECASE), normalize_order_number),
+
+EMAIL_IN_TEXT = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+ORDER_NUMBER_IN_TEXT = re.compile(r"\b(?:KC[\s-]?)?\d{5}\b", re.IGNORECASE)
+
+
+def _words(text: str) -> str:
+    return " ".join(re.findall(r"[\w'-]+", text.casefold()))
+
+
+def _typed(pattern: re.Pattern, normalize: Callable[[str], str]) -> Callable[[str, str], bool]:
+    return lambda value, text: normalize(value) in {normalize(found) for found in pattern.findall(text)}
+
+
+# How to tell that the customer typed a value, per argument name.
+CUSTOMER_VALUES: dict[str, Callable[[str, str], bool]] = {
+    "email": _typed(EMAIL_IN_TEXT, normalize_email),
+    "order_number": _typed(ORDER_NUMBER_IN_TEXT, normalize_order_number),
+    "customer_name": lambda value, text: bool(_words(value)) and f" {_words(value)} " in f" {_words(text)} ",
 }
 
 
@@ -61,11 +68,6 @@ class Tool:
         }
 
 
-def _customer_gave(field: str, value: str, customer_text: str) -> bool:
-    pattern, normalize = CUSTOMER_VALUES[field]
-    return normalize(value) in {normalize(found) for found in pattern.findall(customer_text)}
-
-
 def run_tool(tools: dict[str, Tool], name: str, raw_arguments: str, customer_text: str | None = None) -> dict:
     """Validate the model's arguments, run the tool, and always return a dict.
 
@@ -85,7 +87,9 @@ def run_tool(tools: dict[str, Tool], name: str, raw_arguments: str, customer_tex
         return {"error": "invalid_arguments", "message": problems}
     if customer_text is not None:
         missing = [
-            field for field in tool.customer_supplied if not _customer_gave(field, getattr(args, field), customer_text)
+            field
+            for field in tool.customer_supplied
+            if not CUSTOMER_VALUES[field](str(getattr(args, field)), customer_text)
         ]
         if missing:
             return {
@@ -98,105 +102,3 @@ def run_tool(tools: dict[str, Tool], name: str, raw_arguments: str, customer_tex
     except Exception:  # the customer should get an apology, not a stack trace
         log.exception("tool %s failed", name)
         return {"error": "tool_failed", "message": "The tool hit an internal error. Apologize; do not guess."}
-
-
-def build_tools(orders: list[Order], catalog: list[Product], clock: Clock, promo_store: PromoStore) -> dict[str, Tool]:
-    # Enums come from the data, so the model cannot ask for a category or
-    # riding style that Kestrel does not sell.
-    Category = Literal[tuple(sorted({product.category for product in catalog}))]
-    Style = Literal[tuple(sorted({style for product in catalog for style in product.riding_style} - {"all"}))]
-
-    class LookupOrderArgs(Args):
-        email: Email = Field(description="The email address the customer gave in this conversation.")
-        order_number: str = Field(min_length=1, description="The order number the customer gave, e.g. KC-10421.")
-
-    class SearchProductsArgs(Args):
-        category: Category | None = Field(None, description="Limit results to one category.")
-        riding_style: Style | None = Field(None, description="How or where the customer rides.")
-        max_price: float | None = Field(None, gt=0, description="The customer's budget in USD.")
-        rider_height: float | None = Field(None, gt=0, description="Rider height, for bike sizing.")
-        height_unit: Literal["cm", "in"] = Field("cm", description="Unit of rider_height. 5 ft 10 in is 70 in.")
-        name_or_sku: str | None = Field(None, description="Part of a product name, or an exact SKU.")
-
-        @property
-        def rider_height_cm(self) -> float | None:
-            if self.rider_height is None:
-                return None
-            return self.rider_height * CM_PER_INCH if self.height_unit == "in" else self.rider_height
-
-        @model_validator(mode="after")
-        def height_is_plausible(self):
-            low, high = PLAUSIBLE_HEIGHT_CM
-            if self.rider_height_cm is not None and not low <= self.rider_height_cm <= high:
-                raise ValueError(
-                    f"rider_height {self.rider_height:g} {self.height_unit} is not a plausible height; "
-                    "check the unit or ask the customer"
-                )
-            return self
-
-    class NightOwlArgs(Args):
-        email: Email = Field(description="The customer's email address; the code is tied to it.")
-
-    failed_lookups = 0
-
-    def lookup_order(args: LookupOrderArgs) -> dict:
-        nonlocal failed_lookups
-        if failed_lookups >= MAX_FAILED_LOOKUPS:
-            return {
-                "error": "too_many_attempts",
-                "message": "Too many lookups did not match in this conversation, so no more are allowed. "
-                "Tell the customer you can't look up more orders in this chat. Do not suggest which value is wrong.",
-            }
-        order = find_order(orders, args.email, args.order_number)
-        if order is None:
-            failed_lookups += 1
-            return {
-                "error": "no_match",
-                "message": "No order matches this email and order number together. "
-                "The system does not reveal which of the two is wrong.",
-            }
-        return order_summary(order, catalog, clock.now().date())
-
-    def search_products(args: SearchProductsArgs) -> dict:
-        return catalog_search.search(
-            catalog,
-            category=args.category,
-            riding_style=args.riding_style,
-            max_price=args.max_price,
-            rider_height_cm=args.rider_height_cm,
-            name_or_sku=args.name_or_sku,
-        )
-
-    def get_night_owl_code(args: NightOwlArgs) -> dict:
-        return request_code(promo_store, args.email, clock.now())
-
-    tools = [
-        Tool(
-            "lookup_order",
-            "Look up one order. Requires the customer's email AND order number; both must belong to the "
-            "same order. Returns status, tracking link if shipped, notes, and per-item return eligibility "
-            "with reasons. Call only after the customer has given both values.",
-            LookupOrderArgs,
-            lookup_order,
-            customer_supplied=("email", "order_number"),
-        ),
-        Tool(
-            "search_products",
-            "Search the Kestrel catalog, the only source of product facts. Returns 'matches' (meet every "
-            "filter and are in stock) and 'near_misses' (each with why_not: the reasons it missed, such as "
-            "out of stock). Use the filters instead of several broad searches. "
-            "For bikes, pass rider_height to get the sizes that fit.",
-            SearchProductsArgs,
-            search_products,
-        ),
-        Tool(
-            "get_night_owl_code",
-            "Get the customer's Night Owl discount code. Call only when the customer explicitly asks for "
-            "the Night Owl promotion or its code. The tool checks the time window itself and returns the "
-            "same code if this email already has one.",
-            NightOwlArgs,
-            get_night_owl_code,
-            customer_supplied=("email",),
-        ),
-    ]
-    return {tool.name: tool for tool in tools}

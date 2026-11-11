@@ -29,6 +29,7 @@ from typing import Callable
 from kestrel import guard
 from kestrel.__main__ import DEFAULT_MODEL, build_agent
 from kestrel.agent import LLM_UNAVAILABLE, SAFE_FALLBACK
+from kestrel.features.night_owl import CODE as NIGHT_OWL_CODE
 from kestrel.orders import normalize_email
 
 SCENARIOS = Path(__file__).resolve().parent / "scenarios.json"
@@ -91,7 +92,7 @@ def failed_checks(replies: list[str], tools_called: list[str], expect: dict, cal
         if fewest < expect["min_words"]:
             failures.append(f"every reply needs at least {expect['min_words']} words, found one with {fewest}")
     if "distinct_codes" in expect:
-        codes = {code.upper() for code in guard.CODE.findall(text)}
+        codes = {code.upper() for code in NIGHT_OWL_CODE.findall(text)}
         if len(codes) != expect["distinct_codes"]:
             failures.append(f"expected {expect['distinct_codes']} distinct code(s), found {sorted(codes)}")
     return failures

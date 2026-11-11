@@ -11,7 +11,7 @@ from .clock import Clock, parse_now
 from .data import load_catalog, load_orders
 from .llm import OpenRouterClient
 from .promo import PromoStore
-from .tools import build_tools
+from .features import Context, build_features
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MODEL = "anthropic/claude-haiku-5.5"
@@ -38,7 +38,7 @@ def build_agent(now: str | None, state_file: Path | str | None, model: str | Non
     clock = Clock(parse_now(now) if now else None)
     store = PromoStore(Path(state_file or os.environ.get("KESTREL_STATE_FILE") or DEFAULT_STATE_FILE))
     llm = OpenRouterClient(api_key, model or os.environ.get("KESTREL_MODEL") or DEFAULT_MODEL)
-    return Agent(llm, build_tools(load_orders(), load_catalog(), clock, store), clock)
+    return Agent(llm, build_features(Context(load_orders(), load_catalog(), clock, store)), clock)
 
 
 def main() -> None:

@@ -7,7 +7,7 @@ from kestrel.agent import LLM_UNAVAILABLE, MAX_STEPS, SAFE_FALLBACK, Agent
 from kestrel.clock import Clock, parse_now
 from kestrel.llm import LLMError
 from kestrel.promo import PromoStore
-from kestrel.tools import build_tools
+from kestrel.features import Context, build_features
 
 
 class FakeLLM:
@@ -42,9 +42,9 @@ def call(name, arguments, call_id="call_1"):
 def make_agent(orders, catalog, tmp_path):
     def make(*responses, now="2026-12-01 21:30"):
         clock = Clock(parse_now(now))
-        tools = build_tools(orders, catalog, clock, PromoStore(tmp_path / "codes.json"))
+        features = build_features(Context(orders, catalog, clock, PromoStore(tmp_path / "codes.json")))
         llm = FakeLLM(*responses)
-        return Agent(llm, tools, clock), llm
+        return Agent(llm, features, clock), llm
 
     return make
 

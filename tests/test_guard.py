@@ -154,3 +154,25 @@ def test_emoji_beyond_two_are_removed():
 def test_a_clean_reply_is_unchanged():
     reply = f"Your code is ready:\n{CODE}\nSmooth roads ahead! 🚲"
     assert repair(reply, {CODE}) == (reply, [])
+
+
+# --- H6: another customer's name is never shown ---
+
+
+def test_another_customers_name_is_a_hard_violation():
+    assert "other_customer" in hard("That order belongs to Marcus Reed.")
+    assert "other_customer" in hard("Hi Marcus, here's your order.")
+
+
+def test_a_name_from_a_verified_order_or_typed_by_the_customer_is_fine():
+    assert hard("Hi Marcus, it has shipped.", collect_facts({"customer_name": "Marcus Reed"})) == set()
+    assert hard("Hi Ava, I need your email to look that up.", customer="I'm Ava Chen") == set()
+    assert hard("Thanks, Ava!", customer="this is ava") == set()
+
+
+def test_an_issued_code_without_digits_is_still_a_fact():
+    # Found by the eval after the feature refactor: NIGHTOWL-PVSJYZ has no digit, so the
+    # generic code-like pattern missed it and the guard blocked a real code.
+    facts = collect_facts({"status": "issued", "code": "NIGHTOWL-PVSJYZ"})
+    assert "NIGHTOWL-PVSJYZ" in facts
+    assert hard("Your code:\nNIGHTOWL-PVSJYZ", facts) == set()

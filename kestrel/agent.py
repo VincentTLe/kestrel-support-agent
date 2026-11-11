@@ -13,8 +13,9 @@ import logging
 from . import guard
 from .clock import Clock
 from .llm import LLM, LLMError
+from .features import Feature
 from .prompt import build_system_prompt
-from .tools import Tool, run_tool
+from .tools import run_tool
 
 log = logging.getLogger(__name__)
 
@@ -34,10 +35,12 @@ FINAL_STEP_NOTE = {
 
 
 class Agent:
-    def __init__(self, llm: LLM, tools: dict[str, Tool], clock: Clock):
+    def __init__(self, llm: LLM, features: list[Feature], clock: Clock):
         self.llm = llm
-        self._tools = tools
-        self._schemas = [tool.schema() for tool in tools.values()]
+        self.features = list(features)
+        self._tools = {tool.name: tool for feature in self.features for tool in feature.tools}
+        self._schemas = [tool.schema() for tool in self._tools.values()]
+        self._policy = guard.GuardPolicy.from_features(self.features)
         self.clock = clock
         self._facts: set[str] = set()  # codes, links and prices returned by tools so far
         self.messages: list[dict] = []  # the conversation, without the system prompt
@@ -46,7 +49,7 @@ class Agent:
 
     def reply(self, user_text: str) -> str:
         self.messages.append({"role": "user", "content": user_text})
-        system = {"role": "system", "content": build_system_prompt(self.clock.now())}
+        system = {"role": "system", "content": build_system_prompt(self.clock.now(), self.features)}
         scratch: list[dict] = []  # a rejected draft and its correction: sent to the model, never stored
         rewritten = False
 
@@ -70,7 +73,7 @@ class Agent:
 
             draft = (message.get("content") or "").strip()
             violations = (
-                guard.check(draft, self._facts, self._customer_text())
+                guard.check(draft, self._facts, self._customer_text(), self._policy)
                 if draft
                 else [guard.Violation("empty", "The reply was empty.")]
             )
@@ -83,7 +86,7 @@ class Agent:
                 self._record_guard(violations, "fallback")
                 return self._finish(SAFE_FALLBACK)
 
-            text, repairs = guard.repair(draft, self._facts)
+            text, repairs = guard.repair(draft, self._facts, self._policy)
             if repairs:
                 self.guard_events.append({"rules": repairs, "action": "repaired"})
             return self._finish(text)
@@ -105,7 +108,7 @@ class Agent:
         for call in calls:
             name, arguments = call["function"]["name"], call["function"]["arguments"]
             result = run_tool(self._tools, name, arguments, customer_text)
-            self._facts |= guard.collect_facts(result)
+            self._facts |= guard.collect_facts(result, policy=self._policy)
             self.trace.append({"tool": name, "arguments": arguments, "result": result})
             self.messages.append({"role": "tool", "tool_call_id": call["id"], "content": json.dumps(result)})
 

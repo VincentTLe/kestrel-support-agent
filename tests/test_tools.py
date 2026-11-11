@@ -4,7 +4,8 @@ import pytest
 
 from kestrel.clock import Clock, parse_now
 from kestrel.promo import PromoStore
-from kestrel.tools import Tool, build_tools, run_tool
+from kestrel.features import build_tools
+from kestrel.tools import Tool, run_tool
 
 
 def make_tools(orders, catalog, tmp_path, now="2026-12-01 21:30"):
