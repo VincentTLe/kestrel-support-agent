@@ -1,20 +1,20 @@
-Kestrel customer journeys, 2026-11-11 15:14, model: anthropic/claude-haiku-5.5, 3 run(s) each
-journeys passed: 24/24   resolved: 100%   turns to resolution: 1.38   CSAT: 3.43/5   effort (CES): 2.09/5
-agent: 2.75 model calls per journey, $0.0403 in total
+Kestrel customer journeys, 2026-11-11 15:23, model: anthropic/claude-haiku-5.5, 3 run(s) each
+journeys passed: 24/24   resolved: 100%   turns to resolution: 1.38   CSAT: 3.46/5   effort (CES): 2/5
+agent: 2.71 model calls per journey, $0.0398 in total
 
 PASS  typo-order-number  (right email, mistyped order number: the agent should lead the customer to the real order)
-      resolved at turn: 2   CSAT 5   effort 1
+      resolved at turn: 2   CSAT 5   effort 2
       tools: lookup_order({"email": "marcus.reed@example.com", "order_number": "KC-10432"}), recover_order({"email": "marcus.reed@example.com", "customer_name": "Marcus Reed", "order_number": "KC-10432"})
       customer> Hi, where's my order KC-10432? My email is marcus.reed@example.com
-      kestrel > I couldn't find an order matching that email and order number together. Let's track it down.
+      kestrel > I couldn't find an order matching that email and order number together. Let's get this sorted out.
       kestrel > 
-      kestrel > Did you place the order with a different email address? If not, what is the full name on the order, so I can check whether the order number was mistyped?
-      customer> I placed it with marcus.reed@example.com, and I don't use any other email. The full name on the order is Marcus Reed.
-      kestrel > I found it. The order number was slightly off, and the order under your email and name is:
+      kestrel > Did you place the order with a different email address? If not, what is the full name on the order? With that, I can check whether the order number was slightly off.
+      customer> Hi Marcus, no, I only use marcus.reed@example.com, so there's no other email to try. The name on the order is Marcus Reed.
+      kestrel > I found it. You likely mistyped one digit, and your order is KC-10433:
       kestrel > 
       kestrel > KC-10433
       kestrel > 
-      kestrel > It has shipped. It was placed on November 25 and shipped on November 28. Track it here:
+      kestrel > It shipped on November 28 and is on its way. You can follow it here:
       kestrel > 
       kestrel > https://track.kestrelcycles.example/1Z84KC0002
       kestrel > 
@@ -24,92 +24,89 @@ PASS  jacket-too-small  (a return that is too late: the real need is a jacket th
       resolved at turn: 1   CSAT 3   effort 2
       tools: lookup_order({"email": "ava.chen@example.com", "order_number": "KC-10440"}), search_products({"name_or_sku": "Velo Rain Shell Jacket"})
       customer> I want to return my rain jacket, it's too small. ava.chen@example.com, order KC-10440
-      kestrel > Sorry about the fit, Ava. I checked order KC-10440, and the Velo Rain Shell Jacket (size S) was delivered on October 15. Its 30-day return window closed on November 14, so I can't start a return on it.
+      kestrel > I'm sorry, the jacket is past its return window. Order KC-10440 was delivered on October 15, and returns close 30 days after delivery, so the window ended on November 14. I can't make an exception here.
       kestrel > KC-10440
       kestrel > 
-      kestrel > The good news is that the jacket is in stock in sizes M and L, so you can pick up the size that fits. Track your original order here:
-      kestrel > https://track.kestrelcycles.example/1Z84KC0003
+      kestrel > The good news is the Velo Rain Shell Jacket is in stock in sizes M and L, at $149.00 each. If you want a bigger one, you can order it from the Kestrel catalog as a new purchase.
       kestrel > 
-      kestrel > Would you like to go with size M or L for a new jacket?
+      kestrel > Would you like me to check anything else on the jacket or another item for you?
 
 PASS  never-received  (marked delivered but missing: guide the search, never push a return)
       resolved at turn: 1   CSAT 3   effort 2
       tools: lookup_order({"email": "ava.chen@example.com", "order_number": "KC-10421"})
       customer> Where's my order? It says delivered but I never got it. ava.chen@example.com, KC-10421
-      kestrel > I'm sorry about this. Our records show order KC-10421 (Ridgeline Trail Helmet, size M) was delivered on November 20, 2026. Here is the tracking link:
+      kestrel > I'm sorry this package hasn't reached you. Here's what our records show for your order:
       kestrel > KC-10421
-      kestrel > 
+      kestrel > It shows the Ridgeline Trail Helmet (size M) was delivered on November 20. You can see the delivery details here:
       kestrel > https://track.kestrelcycles.example/1Z84KC0001
+      kestrel > A return won't locate a missing package, so the tracking link is the best place to start.
       kestrel > 
-      kestrel > Have you checked around the delivery address? Neighbors, a mailroom, or a building concierge sometimes take packages that were marked delivered.
+      kestrel > Have you checked around the delivery address, such as with neighbors, a mailroom, or a porch or side-door spot where the carrier may have left it?
 
 PASS  cancel-processing  (cancelling is not possible here: the real need is not paying for the pannier)
       resolved at turn: 1   CSAT 2   effort 4
       tools: lookup_order({"email": "priya.n@example.com", "order_number": "KC-10437"})
       customer> Please cancel my order, I don't need the pannier anymore. priya.n@example.com, KC-10437
-      kestrel > Thanks, Priya. I found order KC-10437. It's still Processing and hasn't shipped, but I can't cancel or change orders in this chat, so it stays as placed for now.
+      kestrel > I found your order KC-10437. It's still in Processing and hasn't shipped yet. I can't cancel or change orders from this chat, so the pannier pair is still on the order for now.
       kestrel > KC-10437
       kestrel > 
-      kestrel > Here's what you can do: once it's delivered, the Commuter Pannier Pair ($119.00) can be returned within 30 days of delivery. The Metro Commuter Helmet ($89.00) can be returned the same way.
+      kestrel > Here's what you can do: once the order is delivered, the Commuter Pannier Pair can be returned within 30 days of delivery. Your Metro Commuter Helmet is also eligible under the same window, if you want to keep that one.
       kestrel > 
-      kestrel > Would you like me to check the order again later, or is there anything else I can help you find?
+      kestrel > Would you like me to help you find another pannier or a different accessory from the catalog that fits what you need?
 
 PASS  bike-for-daughter  (a vague request: the agent should ask the one thing that decides the answer)
       resolved at turn: 2   CSAT 5   effort 1
       tools: search_products({"category": "Bikes", "riding_style": "kids"}), search_products({"category": "Bikes", "riding_style": "kids", "rider_height": 125})
       customer> Hi! I want to buy a bike for my daughter for Christmas.
-      kestrel > Hi there, and happy early Christmas planning! I found a good fit for a kids' bike:
+      kestrel > How exciting! Let's get her a great ride for Christmas. Here's what we have in our kids' bikes that's in stock:
       kestrel > 
-      kestrel > Sprout 20 Kids' Bike, $349.00. It's a 20-inch bike with 7 speeds and short-reach brake levers, made for riders roughly 6 to 9 years old. It's in stock.
+      kestrel > Sprout 20 Kids' Bike, $349.00. It has a 20-inch frame, 7 speeds and short-reach brake levers, made for riders roughly 6 to 9 years old. It fits riders between 115 and 135 cm tall.
       kestrel > 
-      kestrel > How tall is your daughter? The Sprout fits riders between 115 cm and 135 cm (about 3 ft 9 in to 4 ft 5 in), so I can confirm it's the right size for her.
-      customer> Hi! She's 125 cm tall. The Sprout 20 sounds like it could work. Is it okay for riding around the park?
-      kestrel > Good news: at 125 cm, your daughter is within the Sprout 20's fitting range, and it's in stock in its one size.
+      kestrel > To make sure it fits her, how tall is your daughter?
+      customer> She's 125 cm tall, so that's right in the middle of the range for the Sprout 20.
+      kestrel > 125 cm is a great fit for the Sprout 20 Kids' Bike. It's in stock in its one size, and it's $349.00.
       kestrel > 
-      kestrel > For park riding, the Sprout is a 20-inch bike with 7 speeds and short-reach brake levers, made for riders roughly 6 to 9 years old. Those short-reach levers are easier for smaller hands to squeeze. I can't speak to specific park terrain, but it's a good match for riding on paths and around the park. Before the first ride, check that she can reach the brakes comfortably and that her helmet fits snugly.
-      kestrel > 
-      kestrel > The Sprout 20 Kids' Bike is $349.00. Would you like to go ahead with it, or would you like me to look at other options?
+      kestrel > It has 7 speeds and short-reach brake levers, which makes it easier for smaller hands to reach. Good news for a Christmas morning ride!
 
 PASS  ebike-out-of-stock  (the product wanted is out of stock: say when it is back and offer what works now)
       resolved at turn: 1   CSAT 3   effort 2
-      tools: search_products({"category": "Bikes", "riding_style": "e-bike"}), search_products({"category": "Bikes", "riding_style": "commuting"})
+      tools: search_products({"category": "Bikes", "riding_style": "e-bike"})
       customer> Do you have an e-bike for my commute?
-      kestrel > We don't have an e-bike in stock right now. The Metro E-Assist is a pedal-assist commuter with a mid-drive motor and 80 km range, priced at $2,650, but it's out of stock in every size. It's due back on January 15, 2027.
+      kestrel > Nothing in our catalog is an in-stock e-bike right now. The closest is the Metro E-Assist, a pedal-assist commuter with a mid-drive motor and 80 km range, priced at $2,650. It's out of stock in every size and is due back on January 15, 2027.
       kestrel > 
-      kestrel > In stock, the Metro 8 Commuter is an upright city bike at $899, with an 8-speed internal hub, fenders, a rear rack and integrated lights. It's a good fit for commuting.
+      kestrel > If you need a bike for your commute today, the Metro 8 Commuter is in stock at $899. It's an upright city bike with an 8-speed internal hub, fenders, a rear rack and integrated lights. It's not a pedal-assist bike, though.
       kestrel > 
-      kestrel > What's your height? That will tell me which size of the Metro 8 Commuter fits you.
+      kestrel > Tell me your height and I'll confirm which size fits you.
+      kestrel > 
+      kestrel > What is your height, so I can check which size of the Metro 8 Commuter fits you?
 
 PASS  brakes-squeal  (a service Kestrel does not offer here: practical know-how, safety first, no invented service)
-      resolved at turn: 1   CSAT 4   effort 2
+      resolved at turn: 1   CSAT 3   effort 2
       tools: none
       customer> My brakes squeal really badly, can you fix them?
-      kestrel > I can't do repairs myself, and I don't have information on Kestrel repair services, so I can't book a fix here. Squeal is usually fixable at home, though, and it's worth doing before your next ride:
+      kestrel > I can't do repairs, but brake squeal is usually something you can track down yourself.
       kestrel > 
-      kestrel > - Check your pads. If they're worn down near the wear line, or glazed and shiny, they need replacing.
-      kestrel > - Clean the rotor and pads. Wipe the rotor with isopropyl alcohol and a clean rag. Oil or grease on the braking surface is a common cause of squeal.
-      kestrel > - Check pad alignment. The pads should hit the rotor flat, not on the edge, so adjust them if they sit at an angle.
-      kestrel > - Check the rotor. Make sure it's straight and the bolts are tight.
+      kestrel > Most squeal comes from one of these: pads contaminated with oil or grease, dirty rotors or rims, pads worn down or glazed, or pads sitting slightly out of alignment. Start by wiping the rotor or rim with isopropyl alcohol and a clean rag, and keep your fingers off the braking surface. Then check the pads for wear and for any glossy or shiny spots. If the pads look thin or uneven, they need replacing.
       kestrel > 
-      kestrel > If the brakes feel weak, grab too hard, or the lever goes to the bars, stop riding the bike until it's checked by a qualified mechanic.
+      kestrel > If the brakes feel weak, grab hard on one side, or the pads are worn close to their limit, don't ride until a bike shop has checked them.
       kestrel > 
-      kestrel > Are you looking to replace pads or parts? If so, tell me your rider height or the part you need and I can search the Kestrel catalog for you.
+      kestrel > Is this a Kestrel bike, and do you have disc or rim brakes?
 
 PASS  wrong-email  (right order number, wrong email: the agent should ask about another email without revealing anything)
       resolved at turn: 2   CSAT 4   effort 2
-      tools: lookup_order({"email": "ava.c@work.example", "order_number": "KC-10421"}), lookup_order({"email": "ava.chen@example.com", "order_number": "KC-10421"}), recover_order({"email": "ava.chen@example.com", "customer_name": "Ava Chen", "order_number": "KC-10421"})
+      tools: lookup_order({"email": "ava.c@work.example", "order_number": "KC-10421"}), lookup_order({"email": "ava.chen@example.com", "order_number": "KC-10421"})
       customer> Hi, can you check on order KC-10421? My email is ava.c@work.example
-      kestrel > I couldn't find an order matching that email and order number together. Let's get you sorted out.
+      kestrel > I couldn't find an order matching that email and order number together. Let's track it down.
       kestrel > 
-      kestrel > Did you place the order with a different email address? If not, what is the full name on the order? With that, I can check whether the order number was mistyped.
+      kestrel > Did you place the order with a different email address? If not, what is the full name on the order, so I can try to find it?
       customer> Yes, I placed it with my personal email, ava.chen@example.com. My full name is Ava Chen.
-      kestrel > Thanks, Ava. I found your order:
+      kestrel > Thanks, Ava. I found your order under your personal email.
       kestrel > 
       kestrel > Here's the latest on your order:
       kestrel > KC-10421
       kestrel > 
-      kestrel > It was delivered on November 20, 2026. Track it here:
+      kestrel > It was delivered on November 20, 2026. Tracking link:
       kestrel > https://track.kestrelcycles.example/1Z84KC0001
       kestrel > 
-      kestrel > Item: Ridgeline Trail Helmet, size M, qty 1, $129.00. This item is eligible for return. The 30-day return window is open through December 20, 2026. You can start a return here:
+      kestrel > Your item, the Ridgeline Trail Helmet (size M, qty 1), is eligible for return. The 30-day return window is open through December 20, 2026. You can start a return here:
       kestrel > https://kestrelcycles.example/returns

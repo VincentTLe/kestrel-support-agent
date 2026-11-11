@@ -39,6 +39,14 @@ MARKDOWN_HEADING = re.compile(r"^[ \t]*#{1,6}[ \t]+", re.MULTILINE)
 WRAPPING = "()[]<>\"'`*.,;:!?"
 MAX_EMOJI = 2
 FACT_KEYS = ("customer_name",)  # plain-text values collected as facts when a tool returns them
+# The agent exists only in this chat: offering to act later is a capability it does not have.
+UNKEEPABLE_PROMISE = re.compile(
+    r"\b(I'll|I will|I can|let me|we'll|we will)\s+(follow up|keep an eye|notify|let you know|email you|"
+    r"reach out|get back to you|check back|text you|call you)"
+    r"|\bwould you like me to (check|look)\b[^.?!]{0,40}\b(later|again|back)\b"
+    r"|\bwould you like me to (follow up|keep an eye|notify|email|remind|reach out|hold)",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -160,6 +168,13 @@ def check(reply: str, allowed: set[str], customer_text: str = "", policy: GuardP
             violations.append(Violation(
                 "unknown_amount", f"Leave ${number} out: no tool returned it. Quote amounts exactly as a tool gave them."
             ))
+
+    if promise := UNKEEPABLE_PROMISE.search(reply):
+        violations.append(Violation(
+            "unkeepable_promise",
+            f"Leave out \"{promise.group(0)}\": you exist only in this chat and cannot do anything later. "
+            "Tell the customer what they can do instead.",
+        ))
 
     for value in policy.protected:
         forms = _name_mentions(value)

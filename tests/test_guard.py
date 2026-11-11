@@ -176,3 +176,26 @@ def test_an_issued_code_without_digits_is_still_a_fact():
     facts = collect_facts({"status": "issued", "code": "NIGHTOWL-PVSJYZ"})
     assert "NIGHTOWL-PVSJYZ" in facts
     assert hard("Your code:\nNIGHTOWL-PVSJYZ", facts) == set()
+
+
+# --- an offer the agent cannot keep: it exists only in this chat ---
+
+
+@pytest.mark.parametrize("reply", [
+    "Would you like me to check the order again later?",
+    "I'll let you know when the XL is back in stock.",
+    "I can follow up with you tomorrow.",
+    "Let me keep an eye on it for you.",
+    "I'll email you the details.",
+])
+def test_an_offer_to_act_later_is_a_hard_violation(reply):
+    assert "unkeepable_promise" in hard(reply)
+
+
+@pytest.mark.parametrize("reply", [
+    "You can check back after 9:00 PM and ask for the code then.",
+    "Once it arrives, you have 30 days to return it.",
+    "Let me know if anything else comes up.",
+])
+def test_telling_the_customer_what_they_can_do_later_is_fine(reply):
+    assert "unkeepable_promise" not in hard(reply)
