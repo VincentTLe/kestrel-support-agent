@@ -229,8 +229,8 @@ def respond(message, status="resolved", next_step=None, call_id="r1"):
 
 
 def test_a_turn_ends_with_respond_and_the_customer_reads_the_message(make_agent):
-    agent, _ = make_agent(respond("Hi! How can I help?", "needs_info", "What can I check for you today?"))
-    assert agent.reply("hello") == "Hi! How can I help?\n\nWhat can I check for you today?"
+    agent, _ = make_agent(respond("Hi there, welcome to Kestrel.", "needs_info", "What can I check for you today?"))
+    assert agent.reply("hello") == "Hi there, welcome to Kestrel.\n\nWhat can I check for you today?"
     assert agent.turns[-1] == {"goal_status": "needs_info", "next_step": "What can I check for you today?", "responded": True}
 
 
