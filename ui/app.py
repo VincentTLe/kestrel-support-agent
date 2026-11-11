@@ -56,6 +56,7 @@ def send(text: str) -> None:
         "tools": agent.trace[marks[0]:],
         "guard": agent.guard_events[marks[1]:],
         "calls": agent.llm.calls[marks[2]:],
+        "status": agent.turns[-1]["goal_status"] if agent.turns else None,
     })
 
 
@@ -106,7 +107,8 @@ for turn in st.session_state.turns:
         st.markdown(as_markdown(turn["reply"]))
         if show_details and (turn["tools"] or turn["guard"] or turn["calls"]):
             seconds = sum(call["seconds"] for call in turn["calls"])
-            with st.expander(f"{len(turn['tools'])} tool call(s), {len(turn['calls'])} model call(s), {seconds:.1f} s"):
+            label = f"problem: {turn['status'] or 'not stated'} · {len(turn['tools'])} tool call(s), "
+            with st.expander(f"{label}{len(turn['calls'])} model call(s), {seconds:.1f} s"):
                 for call in turn["tools"]:
                     st.markdown(f"**{call['tool']}** `{call['arguments']}`")
                     st.json(call["result"], expanded=False)
@@ -121,3 +123,6 @@ if calls:
         st.metric("Model calls", len(calls))
         st.metric("Tokens in / out", f"{sum(c['prompt_tokens'] for c in calls):,} / {sum(c['completion_tokens'] for c in calls):,}")
         st.metric("Cost", f"${sum(c['cost'] or 0 for c in calls):.4f}")
+        st.subheader("Case file")
+        st.caption("What the agent has learned, kept by code and shown to the model on every call.")
+        st.code(st.session_state.agent.case.summary() or "(empty)", language=None)
