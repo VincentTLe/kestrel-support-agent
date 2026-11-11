@@ -332,3 +332,9 @@ def test_values_the_customer_typed_are_in_the_case_file_even_when_the_lookup_fai
     agent.reply("KC-10432, marcus.reed@example.com")
     agent.reply("hm")
     assert "order_number=KC-10432" in llm.requests[-1][0]["content"]
+
+
+def test_a_message_that_already_ends_with_a_question_gets_no_second_one(make_agent):
+    agent, _ = make_agent(respond("Squeal often comes from dirty pads. Are they rim or disc brakes?", "needs_info",
+                                  "Tell me whether you have rim or disc brakes."))
+    assert agent.reply("my brakes squeal").endswith("Are they rim or disc brakes?")

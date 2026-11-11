@@ -97,6 +97,8 @@ def _same(a: str, b: str) -> bool:
 def compose(message: str, status: str | None, next_step: str | None) -> str:
     """The text the customer reads: the message, plus the next step when the problem is not resolved."""
     text = message.strip()
+    if text.endswith("?"):
+        return text  # the message already ends by asking; a second, reworded question only repeats it
     if status in ("needs_info", "cannot_do") and next_step and next_step.strip() and not _same(text, next_step):
         text += "\n\n" + next_step.strip()
     return text

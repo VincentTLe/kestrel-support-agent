@@ -29,7 +29,7 @@ def test_every_feature_is_in_the_catalog_even_when_its_guidance_is_not_loaded():
     prompt = prompt_at("2026-12-01 21:30", active={"orders"})
     for feature in FEATURES:
         assert feature.summary in prompt
-    assert "Each order needs its own order number" in prompt  # orders guidance is loaded
+    assert "Each order needs its own number" in prompt  # orders guidance is loaded
     assert "fitting_sizes is the whole answer" not in prompt  # products guidance is not
 
 

@@ -151,3 +151,67 @@ def test_item_missing_from_catalog_is_unconfirmed_not_guessed(catalog):
     result = order_summary(order, catalog, TODAY)
     assert result["items"][0]["return"]["eligible"] is None
     assert "returns_portal_url" not in result
+
+
+# --- recovering a mistyped order number with the name on the order ---
+
+from kestrel.orders import find_order_by_name, within_one_edit  # noqa: E402
+
+
+@pytest.mark.parametrize("typed, real, close", [
+    ("10432", "10433", True),   # one digit wrong
+    ("10343", "10433", True),   # two neighbours swapped
+    ("1043", "10433", True),    # a digit missing
+    ("104333", "10433", True),  # a digit extra
+    ("10422", "10433", False),  # two digits wrong
+    ("10433", "10433", True),
+])
+def test_one_edit_apart(typed, real, close):
+    assert within_one_edit(typed, real) is close
+
+
+def test_email_name_and_a_near_number_find_the_order(orders):
+    order = find_order_by_name(orders, "Marcus.Reed@example.com", "marcus  reed", "kc-10432")
+    assert order is not None and order.order_number == "KC-10433"
+
+
+@pytest.mark.parametrize("email, name, number", [
+    ("marcus.reed@example.com", "Mark Reed", "KC-10432"),        # wrong name
+    ("marcus.reed@example.com", "Marcus Reed", "KC-10422"),      # number two edits away
+    ("ava.chen@example.com", "Marcus Reed", "KC-10432"),         # someone else's email
+    ("ava.chen@example.com", "Ava Chen", "KC-10441"),            # near both KC-10440 and KC-10421: ambiguous
+])
+def test_anything_less_than_one_clear_match_finds_nothing(orders, email, name, number):
+    assert find_order_by_name(orders, email, name, number) is None
+
+
+# --- options: what the customer can do next, computed from the order ---
+
+
+def test_a_processing_order_says_it_cannot_be_cancelled_and_what_can_be_returned_later(orders, catalog):
+    options = " ".join(summary(orders, catalog, "priya.n@example.com", "KC-10437")["options"])
+    assert "cannot be cancelled" in options
+    assert "Commuter Pannier Pair" in options and "30 days" in options
+
+
+def test_final_sale_items_are_not_promised_a_later_return(orders, catalog):
+    options = " ".join(summary(orders, catalog, "jordan.kim@example.com", "KC-10452")["options"])
+    assert "Last Season Team Jersey" not in options or "final sale" in options
+
+
+def test_a_delivered_order_explains_what_to_do_if_it_never_arrived(orders, catalog):
+    options = " ".join(summary(orders, catalog, "ava.chen@example.com", "KC-10421")["options"])
+    assert "never arrived" in options and "returns portal" in options
+
+
+def test_a_final_sale_item_in_an_undelivered_order_is_not_promised_a_return(catalog):
+    order = Order(
+        order_number="KC-99001", email="x@example.com", customer_name="X Y", status="Processing",
+        order_date=date(2026, 11, 30), shipped_date=None, delivered_date=None, tracking_number=None,
+        items=[OrderItem(sku="KCC-499", name="Last Season Team Jersey", size="M", qty=1, unit_price=39.0),
+               OrderItem(sku="KCA-320", name="Mini Pump", size=None, qty=1, unit_price=35.0)],
+        total=74.0, notes=None,
+    )
+    later = order_summary(order, catalog, TODAY)["options"][1]
+    assert "can be returned within 30 days of delivery: Mini Pump." in later
+    assert "Final sale items cannot be returned: Last Season Team Jersey." in later

@@ -35,6 +35,66 @@ def find_order(orders: list[Order], email: str, order_number: str) -> Order | No
     return None
 
 
+def within_one_edit(typed: str, real: str) -> bool:
+    """True when `typed` is `real` with at most one digit wrong, swapped with its neighbour, missing or extra."""
+    if typed == real:
+        return True
+    if abs(len(typed) - len(real)) > 1:
+        return False
+    if len(typed) == len(real):
+        diff = [i for i, (a, b) in enumerate(zip(typed, real)) if a != b]
+        if len(diff) == 1:
+            return True
+        i, j = diff[0], diff[-1]
+        return len(diff) == 2 and j == i + 1 and typed[i] == real[j] and typed[j] == real[i]
+    shorter, longer = sorted((typed, real), key=len)
+    return any(longer[:i] + longer[i + 1:] == shorter for i in range(len(longer)))
+
+
+def _name(text: str) -> str:
+    return " ".join(re.findall(r"[\w'-]+", text.casefold()))
+
+
+def find_order_by_name(orders: list[Order], email: str, customer_name: str, typed_number: str) -> Order | None:
+    """Recover a mistyped order number: the order whose email and name match and whose number is one edit away.
+
+    Only an unambiguous match counts. Someone who knows just an email learns nothing: they also need the
+    name on the order and a number close to the real one.
+    """
+    wanted_email, wanted_name = normalize_email(email), _name(customer_name)
+    typed_digits = normalize_order_number(typed_number).removeprefix("KC-")
+    candidates = [
+        order for order in orders
+        if normalize_email(order.email) == wanted_email
+        and _name(order.customer_name) == wanted_name
+        and within_one_edit(typed_digits, order.order_number.removeprefix("KC-"))
+    ]
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def options(order: Order, products: dict[str, Product]) -> list[str]:
+    """What the customer can do next with this order, so the agent can guide them instead of stopping at no."""
+    final_sale = [item.name for item in order.items if item.sku in products and products[item.sku].final_sale]
+    returnable_later = [item.name for item in order.items if item.name not in final_sale]
+    later = (
+        f"Once it is delivered, these items can be returned within {RETURN_WINDOW_DAYS} days of delivery: "
+        + ", ".join(returnable_later) + "."
+        + (f" Final sale items cannot be returned: {', '.join(final_sale)}." if final_sale else "")
+    )
+    if order.status == "Processing":
+        return ["It has not shipped. It cannot be cancelled or changed in this chat.", later]
+    if order.status == "Shipped":
+        return ["It is on its way; tracking_url shows where it is.", later]
+    if order.status == "Delivered":
+        return [
+            "Return eligibility for each item is in items[].return.",
+            "If the customer says it never arrived: give delivered_date and tracking_url, and ask whether they "
+            "have checked around the delivery address, with neighbours or a mailroom. The returns portal does "
+            "not help with a missing package.",
+        ]
+    return [f"The order is {order.status}; nothing more will ship."]
+
+
 def return_eligibility(order: Order, item: OrderItem, product: Product | None, today: date) -> dict:
     """Eligible when Delivered, delivered no more than 30 days ago, and not final sale.
 
@@ -93,6 +153,7 @@ def order_summary(order: Order, catalog: list[Product], today: date) -> dict:
         "total_usd": order.total,
         "notes": order.notes,
         "items": items,
+        "options": options(order, products),
     }
     if order.status in ("Shipped", "Delivered") and order.tracking_number:
         summary["tracking_url"] = TRACKING_URL.format(tracking_number=order.tracking_number)

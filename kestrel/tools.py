@@ -40,7 +40,9 @@ def _typed(pattern: re.Pattern, normalize: Callable[[str], str]) -> Callable[[st
 CUSTOMER_VALUES: dict[str, Callable[[str, str], bool]] = {
     "email": _typed(EMAIL_IN_TEXT, normalize_email),
     "order_number": _typed(ORDER_NUMBER_IN_TEXT, normalize_order_number),
-    "customer_name": lambda value, text: bool(_words(value)) and f" {_words(value)} " in f" {_words(text)} ",
+    # Emails are removed first: marcus.reed@example.com must not count as having typed "Marcus Reed".
+    "customer_name": lambda value, text: bool(_words(value))
+    and f" {_words(value)} " in f" {_words(EMAIL_IN_TEXT.sub(' ', text))} ",
 }
 
 

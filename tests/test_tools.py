@@ -25,7 +25,7 @@ def run(tools, name, **arguments):
 
 
 def test_every_tool_has_a_function_schema(tools):
-    assert set(tools) == {"lookup_order", "search_products", "get_night_owl_code"}
+    assert set(tools) == {"lookup_order", "recover_order", "search_products", "get_night_owl_code"}
     for tool in tools.values():
         schema = tool.schema()
         assert schema["type"] == "function"
@@ -166,3 +166,36 @@ def test_a_crashing_handler_is_an_error_result(tools):
     result = run(broken, "lookup_order", email="ava.chen@example.com", order_number="KC-10421")
     assert result["error"] == "tool_failed"
     assert "database on fire" not in json.dumps(result)  # internals stay out of the prompt
+
+
+# --- recover_order: a mistyped number, found again with the name on the order ---
+
+MARCUS_TYPO = {"email": "marcus.reed@example.com", "customer_name": "Marcus Reed", "order_number": "KC-10432"}
+SAID = "where's KC-10432? marcus.reed@example.com ... it's Marcus Reed"
+
+
+def test_recover_order_finds_the_order_the_customer_meant(tools):
+    result = run_tool(tools, "recover_order", json.dumps(MARCUS_TYPO), customer_text=SAID)
+    assert result["order_number"] == "KC-10433" and result["recovered_from"] == "KC-10432"
+
+
+def test_recover_order_needs_the_name_from_the_customer(tools):
+    said = "where's KC-10432? marcus.reed@example.com"
+    result = run_tool(tools, "recover_order", json.dumps(MARCUS_TYPO), customer_text=said)
+    assert result["error"] == "not_provided_by_customer" and "customer_name" in result["message"]
+
+
+def test_a_failed_recovery_looks_exactly_like_a_failed_lookup_and_counts_toward_the_limit(tools):
+    wrong = {**MARCUS_TYPO, "customer_name": "Mark Reed"}
+    said = SAID + " or Mark Reed"
+    miss = run_tool(tools, "recover_order", json.dumps(wrong), customer_text=said)
+    lookup_miss = run(tools, "lookup_order", email="marcus.reed@example.com", order_number="KC-10432")
+    assert miss == lookup_miss and miss["error"] == "no_match"
+    run_tool(tools, "recover_order", json.dumps(wrong), customer_text=said)
+    assert run_tool(tools, "recover_order", json.dumps(MARCUS_TYPO), customer_text=SAID)["error"] == "too_many_attempts"
+
+
+def test_every_failed_lookup_suggests_the_same_next_step(tools):
+    a = run(tools, "lookup_order", email="marcus.reed@example.com", order_number="KC-10432")
+    b = run(tools, "lookup_order", email="nobody@example.com", order_number="KC-99999")
+    assert a == b and "name on the order" in a["next_step"]
