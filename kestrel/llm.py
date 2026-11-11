@@ -20,8 +20,11 @@ class LLMError(Exception):
 
 
 class LLM(Protocol):
-    def complete(self, messages: list[dict], tools: list[dict]) -> dict:
-        """Return the assistant message: {"role", "content", optional "tool_calls"}."""
+    def complete(self, messages: list[dict], tools: list[dict], *, tool_choice: str | None = None) -> dict:
+        """Return the assistant message: {"role", "content", optional "tool_calls"}.
+
+        tool_choice="none" asks for a text answer even though tools are offered.
+        """
 
 
 class OpenRouterClient:
@@ -39,12 +42,16 @@ class OpenRouterClient:
         self._timeout = timeout
         self._send = send or self._post
         self._sleep = sleep
+        self.calls: list[dict] = []  # one record per answered request: tokens, cost, latency
 
-    def complete(self, messages: list[dict], tools: list[dict]) -> dict:
+    def complete(self, messages: list[dict], tools: list[dict], *, tool_choice: str | None = None) -> dict:
         payload = {"model": self._model, "messages": messages, "temperature": 0.2, "max_tokens": 800}
         if tools:
             payload["tools"] = tools
+        if tool_choice:
+            payload["tool_choice"] = tool_choice
 
+        started = time.perf_counter()
         problem = "no attempt made"
         for attempt in range(MAX_ATTEMPTS):
             if attempt:
@@ -57,11 +64,21 @@ class OpenRouterClient:
             if status in RETRYABLE_STATUSES:
                 problem = f"HTTP {status}"
                 continue
-            return self._message_from(status, body)
+            choice, usage = self._parse(status, body)
+            self.calls.append({
+                "seconds": time.perf_counter() - started,
+                "attempts": attempt + 1,
+                "prompt_tokens": usage.get("prompt_tokens", 0),
+                "completion_tokens": usage.get("completion_tokens", 0),
+                "cost": usage.get("cost"),  # USD, when the provider reports it
+                "finish_reason": choice.get("finish_reason"),
+            })
+            return choice["message"]
         raise LLMError(f"OpenRouter request failed after {MAX_ATTEMPTS} attempts ({problem})")
 
     @staticmethod
-    def _message_from(status: int, body: str) -> dict:
+    def _parse(status: int, body: str) -> tuple[dict, dict]:
+        """Return (first choice, usage) or raise LLMError."""
         try:
             data = json.loads(body)
         except json.JSONDecodeError as error:
@@ -69,9 +86,11 @@ class OpenRouterClient:
         if isinstance(data, dict) and data.get("error"):  # may arrive with a 200
             raise LLMError(f"HTTP {status}: {data['error'].get('message', data['error'])}")
         try:
-            return data["choices"][0]["message"]
+            choice = data["choices"][0]
+            choice["message"]
         except (KeyError, IndexError, TypeError) as error:
             raise LLMError(f"HTTP {status}: response had no assistant message") from error
+        return choice, data.get("usage") or {}
 
     def _post(self, payload: dict) -> tuple[int, str]:
         request = urllib.request.Request(

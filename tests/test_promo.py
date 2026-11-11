@@ -86,3 +86,9 @@ def test_corrupt_store_file_fails_loudly_instead_of_reissuing(tmp_path):
     path.write_text("{not json", encoding="utf-8")
     with pytest.raises(ValueError):
         PromoStore(path)
+
+
+def test_an_issued_code_comes_with_a_reminder_that_redemption_terms_are_unknown(tmp_path):
+    # A live reply once added "Enter it at checkout", which no one told the agent.
+    result = request_code(PromoStore(tmp_path / "codes.json"), "ava.chen@example.com", IN_WINDOW)
+    assert "redeem" in result["note"].lower() and "expire" in result["note"].lower()

@@ -4,10 +4,15 @@ A tool is a name, a description, a pydantic model for its arguments and a
 handler. Adding a feature means adding one entry in build_tools(); the agent
 loop does not change. A failed call is returned to the model as data
 ({"error": ...}) and never raised, so one bad call cannot end the chat.
+
+Arguments named in a tool's customer_supplied must be values the customer
+typed in this conversation, so the model cannot guess an email or an order
+number, even a correct one.
 """
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import Annotated, Any, Callable, Literal
 
@@ -16,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, Validation
 from . import catalog as catalog_search
 from .clock import Clock
 from .data import Order, Product
-from .orders import find_order, order_summary
+from .orders import find_order, normalize_email, normalize_order_number, order_summary
 from .promo import PromoStore, request_code
 
 log = logging.getLogger(__name__)
@@ -24,6 +29,12 @@ log = logging.getLogger(__name__)
 Email = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
 CM_PER_INCH = 2.54
 PLAUSIBLE_HEIGHT_CM = (90, 230)
+MAX_FAILED_LOOKUPS = 3  # per conversation; order numbers are sequential and easy to guess
+# How to find each customer-supplied value in what the customer typed, and how to compare it.
+CUSTOMER_VALUES = {
+    "email": (re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"), normalize_email),
+    "order_number": (re.compile(r"\b(?:KC[\s-]?)?\d{5}\b", re.IGNORECASE), normalize_order_number),
+}
 
 
 class Args(BaseModel):
@@ -36,6 +47,7 @@ class Tool:
     description: str
     args_model: type[BaseModel]
     handler: Callable[[Any], dict]
+    customer_supplied: tuple[str, ...] = ()  # arguments the customer must have typed
 
     def schema(self) -> dict:
         """The tool in the OpenAI-compatible function-calling format."""
@@ -49,8 +61,16 @@ class Tool:
         }
 
 
-def run_tool(tools: dict[str, Tool], name: str, raw_arguments: str) -> dict:
-    """Validate the model's arguments, run the tool, and always return a dict."""
+def _customer_gave(field: str, value: str, customer_text: str) -> bool:
+    pattern, normalize = CUSTOMER_VALUES[field]
+    return normalize(value) in {normalize(found) for found in pattern.findall(customer_text)}
+
+
+def run_tool(tools: dict[str, Tool], name: str, raw_arguments: str, customer_text: str | None = None) -> dict:
+    """Validate the model's arguments, run the tool, and always return a dict.
+
+    With customer_text, arguments in tool.customer_supplied must appear in it.
+    """
     tool = tools.get(name)
     if tool is None:
         return {"error": "unknown_tool", "message": f"There is no tool named {name!r}."}
@@ -63,6 +83,16 @@ def run_tool(tools: dict[str, Tool], name: str, raw_arguments: str) -> dict:
             f"{'.'.join(str(part) for part in e['loc']) or 'arguments'}: {e['msg']}" for e in error.errors()
         )
         return {"error": "invalid_arguments", "message": problems}
+    if customer_text is not None:
+        missing = [
+            field for field in tool.customer_supplied if not _customer_gave(field, getattr(args, field), customer_text)
+        ]
+        if missing:
+            return {
+                "error": "not_provided_by_customer",
+                "message": f"The customer has not typed this {' or '.join(missing)} in the conversation. "
+                "Ask the customer for it; never guess or infer it.",
+            }
     try:
         return tool.handler(args)
     except Exception:  # the customer should get an apology, not a stack trace
@@ -107,9 +137,19 @@ def build_tools(orders: list[Order], catalog: list[Product], clock: Clock, promo
     class NightOwlArgs(Args):
         email: Email = Field(description="The customer's email address; the code is tied to it.")
 
+    failed_lookups = 0
+
     def lookup_order(args: LookupOrderArgs) -> dict:
+        nonlocal failed_lookups
+        if failed_lookups >= MAX_FAILED_LOOKUPS:
+            return {
+                "error": "too_many_attempts",
+                "message": "Too many lookups did not match in this conversation, so no more are allowed. "
+                "Tell the customer you can't look up more orders in this chat. Do not suggest which value is wrong.",
+            }
         order = find_order(orders, args.email, args.order_number)
         if order is None:
+            failed_lookups += 1
             return {
                 "error": "no_match",
                 "message": "No order matches this email and order number together. "
@@ -138,6 +178,7 @@ def build_tools(orders: list[Order], catalog: list[Product], clock: Clock, promo
             "with reasons. Call only after the customer has given both values.",
             LookupOrderArgs,
             lookup_order,
+            customer_supplied=("email", "order_number"),
         ),
         Tool(
             "search_products",
@@ -155,6 +196,7 @@ def build_tools(orders: list[Order], catalog: list[Product], clock: Clock, promo
             "same code if this email already has one.",
             NightOwlArgs,
             get_night_owl_code,
+            customer_supplied=("email",),
         ),
     ]
     return {tool.name: tool for tool in tools}

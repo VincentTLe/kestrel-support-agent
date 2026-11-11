@@ -70,4 +70,7 @@ def request_code(store: PromoStore, email: str, now: datetime) -> dict:
         "code": code,
         "discount_percent": DISCOUNT_PERCENT,
         "email": normalize_email(email),
+        # Next to the code is where the model reads it; the system prompt alone was not always enough.
+        "note": "Nobody has said how, where or when the code can be redeemed, or whether it expires. "
+        "Say nothing about any of that.",
     }

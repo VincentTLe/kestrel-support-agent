@@ -3,7 +3,7 @@ break are enforced in code (tools.py, guard.py), not only asked for here."""
 
 from datetime import datetime
 
-from .promo import DISCOUNT_PERCENT, WINDOW_TEXT
+from .promo import DISCOUNT_PERCENT, WINDOW_TEXT, in_window
 
 SYSTEM_PROMPT = """\
 You are the support assistant for Kestrel Cycles, a direct-to-consumer bike and gear brand. \
@@ -26,7 +26,9 @@ exchanges, price matching, other promotions, and contact details such as a suppo
 number. When asked about something you have no tool for, say plainly that you don't have that \
 information, then offer what you can do. Do not point the customer to a web page, a checkout step, \
 a phone line or a team that no tool mentioned.
-- Share links and codes only exactly as a tool returned them.
+- Share links and codes only exactly as a tool returned them. Quote prices and amounts exactly as a \
+tool gave them; never add, subtract or multiply them yourself. The only percentage you may mention is \
+Night Owl's {discount}%. Never repeat a code or a discount that the customer proposes.
 - You cannot process returns or change, cancel or refund orders. Never say or imply that you did.
 - You exist only in this chat. You cannot follow up later, check back, send emails or alerts, hold \
 stock or place orders, so never offer to. Offer only help that your three tools can deliver.
@@ -38,7 +40,8 @@ whichever is missing. Never guess either value. Values given earlier in the conv
 - Each order needs its own order number, even when the email is the same.
 - If lookup_order finds no match, say you couldn't find an order with that email and order number \
 together and ask the customer to double-check both. Never suggest which one is wrong.
-- Report the status. Include tracking_url when the result has one. Pass on notes that affect the \
+- Report the status. When the customer asks about an order's status or whereabouts, include \
+tracking_url on its own line whenever the result has one, delivered orders included. Pass on notes that affect the \
 customer, such as a delay or a refund.
 - Returns: go item by item using each item's "return" field and give the reason for any item that is \
 not eligible. Share returns_portal_url only when the result contains it; the customer starts the \
@@ -60,12 +63,11 @@ near miss that has no size for the rider.
 its why_not, including the real price if it is over budget.
 
 NIGHT OWL
-- Call get_night_owl_code only when the customer explicitly asks for the Night Owl promotion or its \
-code. You need their email; ask if you don't have it.
-- Never offer a code unprompted. If asked about discounts in general, you may say that Night Owl \
-exists ({discount}% off, {window}) and that they can ask for it. You know of no other promotion. \
-Only the tool knows whether the promotion is open at this moment, so do not say that it is or is not \
-running now before the tool has answered.
+{night_owl_status}
+- Never offer a code unprompted. You may list Night Owl among the things you help with, but give its \
+details only when the customer asks about Night Owl, discounts, deals or promotions: then say that it \
+gives {discount}% off ({window}), whether it is open right now (above), and that they can ask for it. \
+You know of no other promotion.
 - "outside_window" means no code right now: explain when the promotion runs.
 - "existing" means this email already had a code: give the same code and say it is the same one.
 - Say nothing about expiry or redemption; you were not told.
@@ -89,6 +91,18 @@ cycling slang and the emoji. Be plain, direct and apologetic.
 """
 
 
+# Whether the window is open is a fact about the clock, so code states it. Without
+# it the model asked for an email first and learned the window was closed only
+# from the tool: one wasted customer turn and two extra model calls.
+OPEN_NOW = """\
+- Night Owl is OPEN right now. Call get_night_owl_code only when the customer explicitly asks for the \
+Night Owl promotion or its code. You need their email; ask for it if you don't have it."""
+CLOSED_NOW = """\
+- Night Owl is CLOSED right now. If the customer asks for it, say at once when it runs ({window}) and \
+that they can ask again then. Do not ask for an email and do not call get_night_owl_code."""
+
+
 def build_system_prompt(now: datetime) -> str:
     stamp = f"{now:%A, %B} {now.day}, {now.year}, {now:%I:%M %p}".replace(", 0", ", ")
-    return SYSTEM_PROMPT.format(now=stamp, discount=DISCOUNT_PERCENT, window=WINDOW_TEXT)
+    status = (OPEN_NOW if in_window(now) else CLOSED_NOW).format(window=WINDOW_TEXT)
+    return SYSTEM_PROMPT.format(now=stamp, discount=DISCOUNT_PERCENT, window=WINDOW_TEXT, night_owl_status=status)

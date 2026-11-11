@@ -81,6 +81,37 @@ def test_a_body_without_a_message_is_an_error(body):
         client(FakeTransport((200, body))).complete([], [])
 
 
+def test_tool_choice_is_sent_only_when_asked_for():
+    transport = FakeTransport((200, OK_BODY), (200, OK_BODY))
+    tools = [{"type": "function", "function": {"name": "t", "parameters": {"type": "object"}}}]
+    llm = client(transport)
+    llm.complete([], tools)
+    llm.complete([], tools, tool_choice="none")
+    assert "tool_choice" not in transport.payloads[0]
+    assert transport.payloads[1]["tool_choice"] == "none"
+    assert transport.payloads[1]["tools"] == tools  # history with tool calls still needs the definitions
+
+
+def test_each_call_records_tokens_cost_latency_and_finish_reason():
+    body = json.loads(OK_BODY)
+    body["usage"] = {"prompt_tokens": 3200, "completion_tokens": 40, "cost": 0.00034}
+    llm = client(FakeTransport((503, "{}"), (200, json.dumps(body))))
+    llm.complete([], [])
+    [record] = llm.calls
+    assert record["prompt_tokens"] == 3200
+    assert record["completion_tokens"] == 40
+    assert record["cost"] == 0.00034
+    assert record["finish_reason"] == "stop"
+    assert record["attempts"] == 2
+    assert record["seconds"] >= 0
+
+
+def test_a_response_without_usage_still_records_the_call():
+    llm = client(FakeTransport((200, OK_BODY)))
+    llm.complete([], [])
+    assert llm.calls[0]["prompt_tokens"] == 0 and llm.calls[0]["cost"] is None
+
+
 def test_the_api_key_never_appears_in_error_text():
     transport = FakeTransport((401, json.dumps({"error": {"code": 401, "message": "bad key"}})))
     with pytest.raises(LLMError) as raised:

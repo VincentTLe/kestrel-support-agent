@@ -58,6 +58,37 @@ def test_wrong_pair_and_unknown_order_are_indistinguishable(tools):
     assert "Marcus" not in json.dumps(wrong_pair)
 
 
+MARCUS = {"email": "marcus.reed@example.com", "order_number": "KC-10433"}
+
+
+def test_lookup_values_must_appear_in_what_the_customer_said(tools):
+    said = "hi, it's order kc 10433, email Marcus.Reed@Example.com"
+    assert run_tool(tools, "lookup_order", json.dumps(MARCUS), customer_text=said)["status"] == "Shipped"
+
+    guessed = run_tool(tools, "lookup_order", json.dumps(MARCUS), customer_text="I'm Marcus Reed, order KC-10433")
+    assert guessed["error"] == "not_provided_by_customer"
+    assert "email" in guessed["message"]
+    assert "Marcus" not in json.dumps(guessed)
+
+
+def test_a_night_owl_email_must_come_from_the_customer(tools):
+    result = run_tool(tools, "get_night_owl_code", json.dumps({"email": "ava.chen@example.com"}), customer_text="code pls")
+    assert result["error"] == "not_provided_by_customer"
+
+
+def test_after_three_failed_lookups_no_more_are_attempted(tools):
+    for number in ("KC-10420", "KC-10422", "KC-10423"):
+        assert run(tools, "lookup_order", email="ava.chen@example.com", order_number=number)["error"] == "no_match"
+    blocked = run(tools, "lookup_order", email="ava.chen@example.com", order_number="KC-10421")
+    assert blocked["error"] == "too_many_attempts"
+    assert "Ridgeline" not in json.dumps(blocked)
+
+
+def test_successful_lookups_do_not_count_toward_the_limit(tools):
+    for _ in range(5):
+        assert run(tools, "lookup_order", email="ava.chen@example.com", order_number="KC-10421")["status"] == "Delivered"
+
+
 # --- search_products ---
 
 
