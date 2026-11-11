@@ -86,4 +86,5 @@ def build(ctx: Context) -> Feature:
             ),
         ),
         guidance=guidance,
+        offer="find bikes and gear that fit you",
     )

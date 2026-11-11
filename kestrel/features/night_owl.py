@@ -56,6 +56,7 @@ def build(ctx: Context) -> Feature:
             ),
         ),
         guidance=guidance,
+        offer="look up the Night Owl promotion",
         issued=(CODE,),
         copyable=(CODE,),
         allowed_percents=frozenset({float(DISCOUNT_PERCENT)}),

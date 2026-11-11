@@ -74,6 +74,7 @@ def build(ctx: Context) -> Feature:
             ),
         ),
         guidance=guidance,
+        offer="check an order's status, tracking or returns",
         copyable=(ORDER_NUMBER,),
         protected=tuple(sorted({o.customer_name for o in ctx.orders} | {o.email for o in ctx.orders})),
         customer_identifiers=(customer_order_numbers,),

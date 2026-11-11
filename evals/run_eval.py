@@ -128,7 +128,7 @@ def run_scenario(scenario: dict, make_agent: Callable) -> dict:
 
             facts = set().union(*(guard.collect_facts(call["result"]) for call in agent.trace))
             failures += [f"turn {number}: ungrounded {v.rule}: {v.detail}" for v in guard.check(reply, facts, customer_text)]
-            if reply in (SAFE_FALLBACK, LLM_UNAVAILABLE):
+            if reply.startswith(SAFE_FALLBACK) or reply == LLM_UNAVAILABLE:
                 failures.append(f"turn {number}: fell back to a fixed reply")
             expect = turn.get("expect", {})
             per_turn = failed_checks([reply], [call["tool"] for call in calls], expect, calls)
