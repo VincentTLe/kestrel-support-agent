@@ -1,0 +1,90 @@
+[
+  {
+    "id": "typo-order-number",
+    "why": "right email, mistyped order number: the agent should lead the customer to the real order",
+    "opening": "Hi, where's my order KC-10432? My email is marcus.reed@example.com",
+    "situation": "You ordered a bike from Kestrel and are waiting for it. You think your order number is KC-10432; you do not know you mistyped it.",
+    "goal": "Find out where your order is.",
+    "reveal": {"full name on the order": "Marcus Reed", "other emails": "none, this is the only email you use"},
+    "max_turns": 4,
+    "resolved_when": {"reply_matches": ["1Z84KC0002"]},
+    "must_not": {}
+  },
+  {
+    "id": "jacket-too-small",
+    "why": "a return that is too late: the real need is a jacket that fits",
+    "opening": "I want to return my rain jacket, it's too small. ava.chen@example.com, order KC-10440",
+    "situation": "Your Velo Rain Shell Jacket in size S is too small. You did not know about the 30-day limit.",
+    "goal": "End up with a rain jacket that fits you.",
+    "reveal": {"your usual size": "M"},
+    "max_turns": 4,
+    "resolved_when": {"tools_called": ["search_products"], "reply_matches": ["Velo Rain Shell", "\\bM\\b|medium"]},
+    "must_not": {"reply_lacks": ["kestrelcycles\\.example/returns"]}
+  },
+  {
+    "id": "never-received",
+    "why": "marked delivered but missing: guide the search, never push a return",
+    "opening": "Where's my order? It says delivered but I never got it. ava.chen@example.com, KC-10421",
+    "situation": "Tracking says your helmet was delivered on November 20, but you never found it. You have not checked with neighbours or the mailroom yet.",
+    "goal": "Find your missing package, or at least know exactly what to do next.",
+    "reveal": {"have you checked with neighbours or the mailroom": "no, not yet"},
+    "max_turns": 3,
+    "resolved_when": {"reply_matches": ["1Z84KC0001", "neighbou?r|mailroom|front desk|porch|safe place|around"]},
+    "must_not": {"reply_lacks": ["kestrelcycles\\.example/returns"]}
+  },
+  {
+    "id": "cancel-processing",
+    "why": "cancelling is not possible here: the real need is not paying for the pannier",
+    "opening": "Please cancel my order, I don't need the pannier anymore. priya.n@example.com, KC-10437",
+    "situation": "You ordered a pannier pair and a helmet. You no longer want the pannier; you still want the helmet.",
+    "goal": "Not end up paying for the pannier.",
+    "reveal": {"do you still want the helmet": "yes"},
+    "max_turns": 3,
+    "resolved_when": {"reply_matches": ["30 days|30-day", "pannier"]},
+    "must_not": {"reply_lacks": ["(I've|I have|has been|is now) cancel"]}
+  },
+  {
+    "id": "bike-for-daughter",
+    "why": "a vague request: the agent should ask the one thing that decides the answer",
+    "opening": "Hi! I want to buy a bike for my daughter for Christmas.",
+    "situation": "Your daughter is 7.",
+    "goal": "Pick a bike that fits her.",
+    "reveal": {"her height": "125 cm", "budget": "around $400", "where she rides": "around the park"},
+    "max_turns": 4,
+    "resolved_when": {"tool_args": {"search_products": {"rider_height": 125}}, "reply_matches": ["Sprout 20"]},
+    "must_not": {}
+  },
+  {
+    "id": "ebike-out-of-stock",
+    "why": "the product wanted is out of stock: say when it is back and offer what works now",
+    "opening": "Do you have an e-bike for my commute?",
+    "situation": "You commute 12 km each way in the city.",
+    "goal": "Find a bike you can commute on, ideally an e-bike.",
+    "reveal": {"your height": "182 cm", "budget": "up to $3,000"},
+    "max_turns": 4,
+    "resolved_when": {"reply_matches": ["Metro E-Assist", "January 15|Jan\\.? 15|2027-01-15", "Metro 8 Commuter"]},
+    "must_not": {}
+  },
+  {
+    "id": "brakes-squeal",
+    "why": "a service Kestrel does not offer here: practical know-how, safety first, no invented service",
+    "opening": "My brakes squeal really badly, can you fix them?",
+    "situation": "Your bike has squeaky brakes.",
+    "goal": "Stop the squeal, or know what to do about it.",
+    "reveal": {"brake type": "disc brakes", "when it squeals": "mostly when braking hard downhill"},
+    "max_turns": 3,
+    "resolved_when": {"reply_matches": ["pad|rotor", "alcohol|clean|contamina|bed"]},
+    "must_not": {"reply_lacks": ["we (offer|provide|do) (repairs|servicing)", "book (a|an|your) (service|repair|appointment)", "our (service|repair) (team|department|center)"]}
+  },
+  {
+    "id": "wrong-email",
+    "why": "right order number, wrong email: the agent should ask about another email without revealing anything",
+    "opening": "Hi, can you check on order KC-10421? My email is ava.c@work.example",
+    "situation": "You placed this order with your personal email, but you first gave your work email.",
+    "goal": "Find out the status of your order.",
+    "reveal": {"other email": "ava.chen@example.com (your personal email)", "full name": "Ava Chen"},
+    "max_turns": 4,
+    "resolved_when": {"reply_matches": ["1Z84KC0001|Ridgeline Trail Helmet"]},
+    "must_not": {}
+  }
+]
