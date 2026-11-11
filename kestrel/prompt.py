@@ -69,12 +69,23 @@ cycling slang and the emoji. Be plain, direct and apologetic.
 """
 
 
-def build_system_prompt(now: datetime, features: Iterable, active: set[str] | None = None, case_file: str = "") -> str:
+ON_DEMAND_NOTE = (
+    "\nOnly the tools of enabled features are loaded. To use another feature, call enable_features with its "
+    "name first; its tools and rules then stay available for the rest of the conversation. If the catalog "
+    "line already answers the question (for example a promotion that is closed now), answer without enabling."
+)
+
+
+def build_system_prompt(
+    now: datetime, features: Iterable, active: set[str] | None = None, case_file: str = "", on_demand: bool = False
+) -> str:
     """The prompt for one model call. `active` names the features whose guidance is included (default: all)."""
     features = list(features)
     active = {f.name for f in features} if active is None else active
     stamp = f"{now:%A, %B} {now.day}, {now.year}, {now:%I:%M %p}".replace(", 0", ", ")
-    catalog = "\n".join(f"- {f.summary}" for f in features)
+    catalog = "\n".join(
+        f"- {f.name}: {f.summary}" + (f" {f.status(now)}" if f.status else "") for f in features
+    ) + (ON_DEMAND_NOTE if on_demand else "")
     sections = "".join(
         f"\n{f.name.replace('_', ' ').upper()}\n{f.guidance(now)}\n" for f in features if f.name in active
     )

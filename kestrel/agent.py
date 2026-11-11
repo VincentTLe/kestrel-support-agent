@@ -35,6 +35,8 @@ from .tools import Args, run_tool
 log = logging.getLogger(__name__)
 
 MAX_STEPS = 6  # model calls per customer turn; the last one must call respond
+ALL_TOOLS_THRESHOLD = 8  # above this many feature tools, "auto" loads features on demand
+ENABLE = "enable_features"
 MAX_INPUT_CHARS = 2000
 RESPOND = "respond"
 FORCE_RESPOND = {"type": "function", "function": {"name": RESPOND}}
@@ -105,11 +107,15 @@ def compose(message: str, status: str | None, next_step: str | None) -> str:
 
 
 class Agent:
-    def __init__(self, llm: LLM, features: list[Feature], clock: Clock):
+    def __init__(self, llm: LLM, features: list[Feature], clock: Clock, tool_loading: str = "auto"):
+        """tool_loading: "all" loads every feature's tools; "on_demand" starts from the catalog and loads a
+        feature when the model enables it; "auto" picks on_demand above ALL_TOOLS_THRESHOLD tools."""
         self.llm = llm
         self.features = list(features)
         self._tools = {tool.name: tool for feature in self.features for tool in feature.tools}
-        self._schemas = [tool.schema() for tool in self._tools.values()] + [RESPOND_SCHEMA]
+        self._feature_of = {tool.name: feature.name for feature in self.features for tool in feature.tools}
+        self.on_demand = tool_loading == "on_demand" or (tool_loading == "auto" and len(self._tools) > ALL_TOOLS_THRESHOLD)
+        self.active: set[str] = set() if self.on_demand else {feature.name for feature in self.features}
         self._policy = guard.GuardPolicy.from_features(self.features)
         self.clock = clock
         self.case = CaseState()
@@ -122,19 +128,17 @@ class Agent:
     def reply(self, user_text: str) -> str:
         user_text = user_text[:MAX_INPUT_CHARS]
         self.messages.append({"role": "user", "content": user_text})
-        system_text = build_system_prompt(self.clock.now(), self.features, case_file=self.case.summary())
-        if LOOKS_LIKE_INSTRUCTIONS.search(user_text):
-            system_text += INSTRUCTIONS_NOTE
-        system = {"role": "system", "content": system_text}
+        flagged = bool(LOOKS_LIKE_INSTRUCTIONS.search(user_text))
         scratch: list[dict] = []  # a rejected draft and its correction: sent to the model, never stored
         rewritten = False
         turn_start = len(self.trace)
 
         for step in range(MAX_STEPS):
             last_step = step == MAX_STEPS - 1
-            request = [system, *compact_history(self.messages), *scratch, *([FINAL_STEP_NOTE] if last_step else [])]
+            request = [self._system(flagged), *compact_history(self.messages), *scratch,
+                       *([FINAL_STEP_NOTE] if last_step else [])]
             try:
-                message = self.llm.complete(request, self._schemas, tool_choice=FORCE_RESPOND if last_step else None)
+                message = self.llm.complete(request, self._schemas(), tool_choice=FORCE_RESPOND if last_step else None)
             except LLMError as error:
                 log.error("model call failed: %s", error)
                 return self._finish_fixed(LLM_UNAVAILABLE, "unavailable")
@@ -189,6 +193,40 @@ class Agent:
 
     # --- helpers ---
 
+    def _system(self, flagged: bool) -> dict:
+        """Rebuilt for every model call, so a feature enabled mid-turn brings its rules at once."""
+        text = build_system_prompt(
+            self.clock.now(), self.features, active=self.active, case_file=self.case.summary(), on_demand=self.on_demand
+        )
+        return {"role": "system", "content": text + (INSTRUCTIONS_NOTE if flagged else "")}
+
+    def _schemas(self) -> list[dict]:
+        schemas = [tool.schema() for f in self.features if f.name in self.active for tool in f.tools] + [RESPOND_SCHEMA]
+        if self.on_demand:
+            names = [f.name for f in self.features]
+            schemas.append({"type": "function", "function": {
+                "name": ENABLE,
+                "description": "Load the tools and rules of one or more features from the catalog, for the rest "
+                "of the conversation. Call it before using a feature that is not loaded yet.",
+                "parameters": {"type": "object", "properties": {"names": {
+                    "type": "array", "items": {"type": "string", "enum": names}, "minItems": 1}},
+                    "required": ["names"], "additionalProperties": False},
+            }})
+        return schemas
+
+    def _enable(self, arguments: str) -> dict:
+        try:
+            names = list(json.loads(arguments or "{}").get("names") or [])
+        except (json.JSONDecodeError, AttributeError):
+            return {"error": "invalid_arguments", "message": "Pass {\"names\": [feature names]}."}
+        known = {f.name for f in self.features}
+        unknown = [n for n in names if n not in known]
+        if unknown or not names:
+            return {"error": "unknown_feature", "message": f"No feature named {unknown}. Choose from {sorted(known)}."}
+        self.active |= set(names)
+        loaded = [tool.name for f in self.features if f.name in names for tool in f.tools]
+        return {"enabled": names, "tools_now_available": loaded}
+
     def _customer_text(self) -> str:
         return "\n".join(m["content"] for m in self.messages if m["role"] == "user" and isinstance(m["content"], str))
 
@@ -216,7 +254,12 @@ class Agent:
         customer_text = self._customer_text()
         for call in calls:
             name, arguments = call["function"]["name"], call["function"]["arguments"]
-            result = run_tool(self._tools, name, arguments, customer_text)
+            if name == ENABLE:
+                result = self._enable(arguments)
+            else:
+                if name in self._feature_of:
+                    self.active.add(self._feature_of[name])  # a tool used directly enables its feature
+                result = run_tool(self._tools, name, arguments, customer_text)
             self._facts |= guard.collect_facts(result, policy=self._policy)
             try:
                 self.case.record_tool(json.loads(arguments), result)

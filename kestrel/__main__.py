@@ -28,7 +28,9 @@ def load_dotenv(path: Path = ROOT / ".env") -> None:
             os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
-def build_agent(now: str | None, state_file: Path | str | None, model: str | None = None) -> Agent:
+def build_agent(
+    now: str | None, state_file: Path | str | None, model: str | None = None, tool_loading: str | None = None
+) -> Agent:
     """Wire the agent from flags, falling back to environment variables."""
     load_dotenv()
     api_key = os.environ.get("OPENROUTER_API_KEY")
@@ -38,7 +40,8 @@ def build_agent(now: str | None, state_file: Path | str | None, model: str | Non
     clock = Clock(parse_now(now) if now else None)
     store = PromoStore(Path(state_file or os.environ.get("KESTREL_STATE_FILE") or DEFAULT_STATE_FILE))
     llm = OpenRouterClient(api_key, model or os.environ.get("KESTREL_MODEL") or DEFAULT_MODEL)
-    return Agent(llm, build_features(Context(load_orders(), load_catalog(), clock, store)), clock)
+    features = build_features(Context(load_orders(), load_catalog(), clock, store))
+    return Agent(llm, features, clock, tool_loading=tool_loading or os.environ.get("KESTREL_TOOL_LOADING") or "auto")
 
 
 def main() -> None:
@@ -48,13 +51,14 @@ def main() -> None:
     parser.add_argument("--model", help="OpenRouter model slug (or set KESTREL_MODEL)")
     parser.add_argument("--transcript", help="also write the conversation, with tool calls, to this markdown file")
     parser.add_argument("--debug", action="store_true", help="print tool calls and guard decisions to stderr")
+    parser.add_argument("--tool-loading", choices=["auto", "all", "on_demand"], help="how feature tools are loaded")
     args = parser.parse_args()
 
     for stream in (sys.stdout, sys.stderr, sys.stdin):
         stream.reconfigure(encoding="utf-8")  # emoji on Windows consoles
     logging.basicConfig(level=logging.WARNING if args.debug else logging.CRITICAL, format="  [%(name)s] %(message)s")
 
-    agent = build_agent(args.now, args.state_file, args.model)
+    agent = build_agent(args.now, args.state_file, args.model, args.tool_loading)
     transcript = open(args.transcript, "w", encoding="utf-8") if args.transcript else None
     if transcript:
         transcript.write(f"Clock: {agent.clock.now():%Y-%m-%d %I:%M %p} Eastern\n")

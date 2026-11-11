@@ -488,7 +488,7 @@
             "9(:00)? ?PM"
           ],
           "reply_lacks": [
-            "email",
+            "(what's|what is|send|share|need|give|provide)[^.?!]{0,25}email",
             "NIGHTOWL-"
           ]
         }

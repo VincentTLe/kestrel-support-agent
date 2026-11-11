@@ -29,6 +29,7 @@ class Feature:
     tools: tuple[Tool, ...]
     guidance: Callable[[datetime], str]  # short rules, in the prompt only while the feature is active
     offer: str = ""  # a short phrase for fallbacks: "check an order's status, tracking or returns"
+    status: Callable[[datetime], str] | None = None  # live state shown in the catalog, e.g. "OPEN now"
     # For the guard. Facts a tool returns are allowed automatically; these say what else to watch for.
     issued: tuple[re.Pattern, ...] = ()  # identifiers only a tool may produce, e.g. discount codes
     copyable: tuple[re.Pattern, ...] = ()  # identifiers that must stand on a line of their own

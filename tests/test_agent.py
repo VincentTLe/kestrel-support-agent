@@ -17,10 +17,12 @@ class FakeLLM:
         self.responses = list(responses)
         self.requests = []
         self.tool_choices = []
+        self.tool_names = []
 
     def complete(self, messages, tools, *, tool_choice=None):
         self.requests.append(copy.deepcopy(messages))
         self.tool_choices.append(tool_choice)
+        self.tool_names.append([tool["function"]["name"] for tool in tools])
         response = self.responses.pop(0)
         if isinstance(response, Exception):
             raise response
@@ -40,11 +42,11 @@ def call(name, arguments, call_id="call_1"):
 
 @pytest.fixture
 def make_agent(orders, catalog, tmp_path):
-    def make(*responses, now="2026-12-01 21:30"):
+    def make(*responses, now="2026-12-01 21:30", tool_loading="auto"):
         clock = Clock(parse_now(now))
         features = build_features(Context(orders, catalog, clock, PromoStore(tmp_path / "codes.json")))
         llm = FakeLLM(*responses)
-        return Agent(llm, features, clock), llm
+        return Agent(llm, features, clock, tool_loading=tool_loading), llm
 
     return make
 
@@ -338,3 +340,33 @@ def test_a_message_that_already_ends_with_a_question_gets_no_second_one(make_age
     agent, _ = make_agent(respond("Squeal often comes from dirty pads. Are they rim or disc brakes?", "needs_info",
                                   "Tell me whether you have rim or disc brakes."))
     assert agent.reply("my brakes squeal").endswith("Are they rim or disc brakes?")
+
+
+# --- loading feature tools on demand ---
+
+
+def test_with_few_tools_everything_is_loaded_and_there_is_nothing_to_enable(make_agent):
+    agent, llm = make_agent(respond("Hi."))
+    agent.reply("hello")
+    assert {"lookup_order", "search_products", "get_night_owl_code", "respond"} <= set(llm.tool_names[0])
+    assert "enable_features" not in llm.tool_names[0]
+
+
+def test_on_demand_the_model_starts_with_the_catalog_and_enables_what_it_needs(make_agent):
+    agent, llm = make_agent(
+        call("enable_features", {"names": ["orders"]}), call("lookup_order", MARCUS), respond("It shipped."),
+        tool_loading="on_demand",
+    )
+    assert agent.reply(MARCUS_SAYS) == "It shipped."
+    first_prompt, second_prompt = llm.requests[0][0]["content"], llm.requests[1][0]["content"]
+    assert llm.tool_names[0] == ["respond", "enable_features"]
+    assert "- orders:" in first_prompt and "Each order needs its own number" not in first_prompt
+    assert "lookup_order" in llm.tool_names[1] and "search_products" not in llm.tool_names[1]
+    assert "Each order needs its own number" in second_prompt
+    assert agent.trace[-1]["result"]["status"] == "Shipped"
+
+
+def test_enabling_an_unknown_feature_is_an_error_result(make_agent):
+    agent, llm = make_agent(call("enable_features", {"names": ["refunds"]}), respond("ok"), tool_loading="on_demand")
+    agent.reply("refund please")
+    assert last_tool_result(llm)["error"] == "unknown_feature"

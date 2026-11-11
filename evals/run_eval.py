@@ -218,6 +218,7 @@ def main() -> None:
     parser.add_argument("--model", help="OpenRouter model slug (default: the agent's default)")
     parser.add_argument("--repeat", type=int, default=3, help="runs per scenario (default 3)")
     parser.add_argument("--workers", type=int, default=4, help="conversations run in parallel (default 4)")
+    parser.add_argument("--tool-loading", choices=["auto", "all", "on_demand"], help="how feature tools are loaded")
     parser.add_argument("--save-run", help="write the summary and every failing (or first) run to this file")
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
@@ -229,7 +230,7 @@ def main() -> None:
             sys.exit(f"No scenario with id {args.only!r}")
 
     def make_agent(now, state_file):
-        return build_agent(now, state_file, args.model)
+        return build_agent(now, state_file, args.model, args.tool_loading)
 
     jobs = [scenario for scenario in scenarios for _ in range(args.repeat)]
     with ThreadPoolExecutor(max_workers=args.workers) as pool:

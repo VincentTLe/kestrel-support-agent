@@ -57,6 +57,10 @@ def build(ctx: Context) -> Feature:
         ),
         guidance=guidance,
         offer="look up the Night Owl promotion",
+        status=lambda now: "OPEN now." if in_window(now) else (
+            f"CLOSED now; it runs {WINDOW_TEXT}. Until then no code can be issued or resent, so do not ask "
+            "for an email and do not enable it; just say when it runs."
+        ),
         issued=(CODE,),
         copyable=(CODE,),
         allowed_percents=frozenset({float(DISCOUNT_PERCENT)}),

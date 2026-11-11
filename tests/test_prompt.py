@@ -36,3 +36,9 @@ def test_every_feature_is_in_the_catalog_even_when_its_guidance_is_not_loaded():
 def test_the_case_file_is_appended_when_there_is_one():
     assert "CASE FILE" not in prompt_at("2026-12-01 21:30")
     assert "Verified order: KC-10433" in prompt_at("2026-12-01 21:30", case_file="Verified order: KC-10433")
+
+
+def test_the_catalog_line_says_whether_night_owl_is_open_even_when_its_rules_are_not_loaded():
+    closed = prompt_at("2026-12-01 15:00", active=set(), on_demand=True)
+    assert "night_owl:" in closed and "CLOSED now" in closed
+    assert "OPEN now" in prompt_at("2026-12-01 21:30", active=set(), on_demand=True)
