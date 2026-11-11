@@ -23,8 +23,8 @@ python -m kestrel --now "2026-12-01 21:30"
 | `--debug` | | Print tool calls and guard decisions to stderr. |
 
 ```bash
-pytest                      # 124 tests, no network, under 2 seconds
-python -m evals.run_eval    # 17 scripted conversations against the real model
+pytest                      # 130 tests, no network, under 2 seconds
+python -m evals.run_eval    # 19 scripted conversations against the real model
 ```
 
 ## How a turn works
@@ -45,7 +45,7 @@ customer text
      +-- violation --> one rewrite with the reason --> still a hard violation --> fixed safe reply
 ```
 
-The loop is in [kestrel/agent.py](kestrel/agent.py) and is about 100 lines. It stops after 6 model calls per turn.
+The loop is in [kestrel/agent.py](kestrel/agent.py) and is about 120 lines. It stops after 6 model calls per turn.
 
 ## Who decides what
 
@@ -65,11 +65,11 @@ The loop is in [kestrel/agent.py](kestrel/agent.py) and is about 100 lines. It s
 
 **Return eligibility always comes with the order.** `lookup_order` returns `return: {eligible, reason}` for every item, computed from the status, the delivery date, the clock and the catalog's `final_sale` flag. The model never does date arithmetic, and it has the reason ready when the answer is no. The returns portal link is in the result only when at least one item is eligible. If the data cannot answer (an item missing from the catalog), `eligible` is `null` and the agent says it cannot confirm.
 
-**Product search is a filter, not a retrieval.** The catalog is small enough to paste into the prompt, but then the model would compare heights, prices and stock itself. `search_products` does that in code and returns either `matches` (in stock, meets every filter, with the frame sizes that fit) or, when nothing matches, up to three `near_misses`, each with a `why_not` list such as "$450.00 over the $1,000.00 budget". Category and riding style are enums built from the data at startup, so the model cannot search for something Kestrel does not sell. Rider height can be given in centimetres or total inches; the conversion is done in code.
+**Product search is a filter, not a retrieval.** The catalog is small enough to paste into the prompt, but then the model would compare heights, prices and stock itself. `search_products` does that in code and returns `matches` (in stock, meets every filter, with the frame sizes that fit) and `near_misses`, each with a `why_not` list such as "$450.00 over the $1,000.00 budget". When nothing matches, the three closest near misses are returned. When something matches, the only near misses are products that fit the request but are out of stock, so the agent can name them as unavailable and never hides them. Category and riding style are enums built from the data at startup, so the model cannot search for something Kestrel does not sell. Rider height can be given in centimetres or total inches; the conversion is done in code.
 
 **The Night Owl window is checked by the tool, not the model.** `get_night_owl_code(email)` asks the clock, issues `NIGHTOWL-` plus six random characters, and stores it by email in a JSON file, so the same email gets the same code after a restart. The model cannot issue a code by any other route.
 
-**A guard checks every reply.** [kestrel/guard.py](kestrel/guard.py) collects every link and code that tools have returned in the conversation. A reply that contains any other `NIGHTOWL-` code, any other URL, or any other mention of Kestrel's domain (an invented support address, for example) is not shown. The model gets one chance to rewrite with the reason; if the rewrite still breaks a hard rule, the customer sees a fixed, safe sentence. Two formatting rules from the brand brief are checked the same way but are let through after one rewrite: at most two emoji, and order numbers, links and codes alone on their own line.
+**A guard checks every reply.** [kestrel/guard.py](kestrel/guard.py) collects every link and code that tools have returned in the conversation. A reply that contains any other `NIGHTOWL-` code, any other URL, or any other mention of Kestrel's domain (an invented support address, for example) is not shown. The model gets one chance to rewrite with the reason; if the rewrite still breaks a hard rule, the customer sees a fixed, safe sentence. Three formatting rules are checked the same way but are let through after one rewrite: at most two emoji, order numbers, links and codes alone on their own line (both from the brand brief), and no markdown, because a terminal prints `**` as typed. A formatting correction asks the model to resend the full reply with only that fixed; a blocked code or link asks for a new reply.
 
 **Tool failures are data.** Bad JSON, a missing argument, an unknown tool or a crash inside a tool all come back to the model as `{"error": ...}`. One bad call cannot end the conversation, and a stack trace never reaches the prompt.
 
@@ -108,7 +108,22 @@ The brief leaves these open. I would ask them before shipping; each is one small
 ## Tests
 
 - **Unit tests** (`pytest`): the rules above, including the boundaries (day 30 and day 31, 8:59:59 PM and 9:00:00 PM, a rider exactly between two frame sizes), the guard, the HTTP client's retry behaviour, and the loop driven by a scripted fake model.
-- **Scenario eval** (`python -m evals.run_eval`): 17 conversations against the real model with written expectations, in [evals/scenarios.json](evals/scenarios.json). The latest saved run is [evals/eval-run.txt](evals/eval-run.txt).
+- **Scenario eval** (`python -m evals.run_eval`): 19 conversations against the real model with written expectations, in [evals/scenarios.json](evals/scenarios.json). The latest saved run, with every reply, is [evals/eval-run.txt](evals/eval-run.txt): 19 of 19 passed on `anthropic/claude-haiku-5.5`. That is one run of a sampled model with regular-expression checks, so read it as "no known failure", not as a pass rate.
+
+## What the live runs changed
+
+The unit tests were green before the model was ever called. Reading the first real replies still found six problems. Each fix is covered by a unit test or an eval check that the original reply fails.
+
+| Seen in a real reply | Fix | Where |
+| --- | --- | --- |
+| An e-bike question got no mention of the out-of-stock Metro E-Assist, because another product matched | Out-of-stock products that fit the request are always returned as near misses | code: `catalog.py` |
+| After a formatting correction the reply shrank to one bare line. A refused "give me 50%" came back as only the customer's code | Formatting corrections ask for the same reply with one change; one correction names every misplaced token | code: `agent.py`, `guard.py` |
+| `**Bold**` product names printed raw in the terminal | New soft guard rule for markdown | code: `guard.py` |
+| A 190 cm rider was offered size L (up to 188 cm) as "a snug fit" | `fitting_sizes` is the whole answer on fit | prompt |
+| "Would you like me to check again later?" | The agent exists only in this chat and offers only what its tools can do | prompt |
+| "You can check the shipping terms at checkout", and "Night Owl is running right now" said before the tool was called | No pointing to pages or teams no tool mentioned; only the tool says whether the window is open | prompt |
+
+The last three are prompt fixes, so they are measured by the eval and not guaranteed by code.
 
 ## Layout
 

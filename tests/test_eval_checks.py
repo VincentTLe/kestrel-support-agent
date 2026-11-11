@@ -35,3 +35,9 @@ def test_distinct_codes_counts_codes_across_all_replies():
     replies = ["Here you go:\nNIGHTOWL-ABC234", "Same code as before:\nNIGHTOWL-ABC234"]
     assert failed_checks(replies, [], {"distinct_codes": 1}) == []
     assert len(failed_checks(replies + ["NIGHTOWL-XYZ789"], [], {"distinct_codes": 1})) == 1
+
+
+def test_min_words_catches_a_reply_cut_down_to_one_bare_line():
+    replies = ["Here's your code, good for 15% off:\nNIGHTOWL-ABC234", "NIGHTOWL-ABC234"]
+    assert failed_checks(replies[:1], [], {"min_words": 4}) == []
+    assert len(failed_checks(replies, [], {"min_words": 4})) == 1

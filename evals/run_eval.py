@@ -13,6 +13,7 @@ saved run keeps every reply so a person can read the ones that matter.
 
 import argparse
 import json
+import os
 import re
 import sys
 import tempfile
@@ -20,7 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 from kestrel import guard
-from kestrel.__main__ import build_agent
+from kestrel.__main__ import DEFAULT_MODEL, build_agent
 
 SCENARIOS = Path(__file__).resolve().parent / "scenarios.json"
 DEFAULT_NOW = "2026-12-01 21:30"
@@ -47,6 +48,10 @@ def failed_checks(replies: list[str], tools_called: list[str], expect: dict) -> 
         most = max(len(guard.EMOJI.findall(reply)) for reply in replies)
         if most > expect["max_emoji"]:
             failures.append(f"at most {expect['max_emoji']} emoji per reply, found {most}")
+    if "min_words" in expect:
+        fewest = min(len(reply.split()) for reply in replies)
+        if fewest < expect["min_words"]:
+            failures.append(f"every reply needs at least {expect['min_words']} words, found one with {fewest}")
     if "distinct_codes" in expect:
         codes = set(guard.CODE.findall(text))
         if len(codes) != expect["distinct_codes"]:
@@ -103,7 +108,8 @@ def main() -> None:
     summary = f"{passed}/{len(scenarios)} scenarios passed"
     print(f"\n{summary}")
     if args.save_run:
-        header = f"Kestrel scenario eval, {datetime.now():%Y-%m-%d %H:%M}, model: {args.model or 'default'}\n{summary}\n"
+        model = args.model or os.environ.get("KESTREL_MODEL") or DEFAULT_MODEL
+        header = f"Kestrel scenario eval, {datetime.now():%Y-%m-%d %H:%M}, model: {model}\n{summary}\n"
         Path(args.save_run).write_text(header + "\n" + "\n\n".join(reports) + "\n", encoding="utf-8")
     sys.exit(0 if passed == len(scenarios) else 1)
 

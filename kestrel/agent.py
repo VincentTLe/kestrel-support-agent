@@ -98,10 +98,20 @@ class Agent:
 
 
 def _correction(violations: list[guard.Violation]) -> dict:
+    """What the model is told about a rejected draft.
+
+    A formatting slip must not cost the customer the content: in the first
+    live runs the model answered a blunt "rewrite" with one bare line.
+    """
     problems = " ".join(violation.detail for violation in violations)
-    return {
-        "role": "user",
-        "content": "[Automated check, not the customer] Your draft was not sent. "
-        f"{problems} Rewrite your reply to the customer's last message. Use only links and codes "
-        "that a tool returned; if you have none, say what you can and cannot do instead.",
-    }
+    if any(violation.hard for violation in violations):
+        instruction = (
+            f"Your draft was not sent. {problems} Rewrite your reply to the customer's last message. "
+            "Use only links and codes that a tool returned; if you have none, say what you can and cannot do instead."
+        )
+    else:
+        instruction = (
+            f"Your draft needs a formatting fix before it is sent. {problems} "
+            "Send the full reply again with only that changed. Keep every other sentence as it was."
+        )
+    return {"role": "user", "content": f"[Automated check, not the customer] {instruction}"}

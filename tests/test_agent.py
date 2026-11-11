@@ -142,3 +142,15 @@ def test_a_model_outage_is_reported_politely_and_the_chat_continues(make_agent):
     agent, _ = make_agent(LLMError("503 from provider"), say("Back now."))
     assert agent.reply("hello") == LLM_UNAVAILABLE
     assert agent.reply("hello again") == "Back now."
+
+
+def test_a_formatting_correction_asks_to_keep_the_rest_of_the_reply(make_agent):
+    agent, llm = make_agent(say("I can't do that. Your code is NIGHTOWL-FAKE99."), say("ok"))
+    agent.reply("x")
+    hard = llm.requests[1][-1]["content"]
+    assert "not sent" in hard.lower()
+
+    agent, llm = make_agent(say("Order KC-10433 shipped."), say("ok"))
+    agent.reply("x")
+    soft = llm.requests[1][-1]["content"]
+    assert "keep every other sentence" in soft.lower()

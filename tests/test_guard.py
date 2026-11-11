@@ -75,3 +75,16 @@ def test_an_order_number_on_its_own_line_passes():
 
 def test_plain_text_passes():
     assert rules("Happy to help! What's your order number and email?") == set()
+
+
+def test_markdown_emphasis_is_a_soft_violation_because_the_terminal_shows_it_raw():
+    assert rules("The **Switchback 29 Hardtail** is a great pick.") == {("markdown", False)}
+
+
+def test_a_markdown_heading_is_a_soft_violation():
+    assert rules("## Your options\nThe Switchback 29 Hardtail.") == {("markdown", False)}
+
+
+def test_one_formatting_correction_names_every_crowded_token():
+    [violation] = check(f"Order KC-10433 shipped, track it at {TRACKING} today.", {TRACKING})
+    assert "KC-10433" in violation.detail and TRACKING in violation.detail

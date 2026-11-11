@@ -16,6 +16,7 @@ ORDER_NUMBER = re.compile(r"KC-\d+")
 EMOJI = re.compile("[\U0001f300-\U0001faff☀-➿]")
 WRAPPING = "()[]<>\"'`*.,;:!?"
 MAX_EMOJI = 2
+MARKDOWN = re.compile(r"\*\*|__|^\s*#{1,6}\s", re.MULTILINE)  # bold, or a heading
 
 
 @dataclass(frozen=True)
@@ -53,11 +54,23 @@ def check(reply: str, allowed: set[str]) -> list[Violation]:
     if len(EMOJI.findall(reply)) > MAX_EMOJI:
         violations.append(Violation("too_many_emoji", False, f"Use at most {MAX_EMOJI} emoji per reply."))
 
+    if MARKDOWN.search(reply):
+        violations.append(
+            Violation("markdown", False, "The terminal shows markdown as raw symbols: remove ** and # marks.")
+        )
+
+    crowded = []  # order numbers, links and codes that share a line with other text
     for line in reply.splitlines():
         tokens = CODE.findall(line) + _links(line) + ORDER_NUMBER.findall(line)
         if tokens and line.strip() != tokens[0]:
-            violations.append(
-                Violation("own_line", False, f"Put {tokens[0]} alone on its own line, with no other text.")
+            crowded += [token for token in tokens if token not in crowded]
+    if crowded:
+        violations.append(
+            Violation(
+                "own_line",
+                False,
+                f"Move {', '.join(crowded)} out of the sentence and onto a line of its own, "
+                "with nothing else on that line.",
             )
-            break
+        )
     return violations
